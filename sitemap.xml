@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://jagjeetsingh-uel.github.io/MyGameArcade/</loc>
+    <priority>1.0</priority>
+  </url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/cube_surfer.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/void_weaver.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/cyber_swing.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/chroma_shift.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/neon_orbit.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/neon_stack.html</loc></url>
+  <url><loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/prompt_drop.html</loc></url>
+</urlset>

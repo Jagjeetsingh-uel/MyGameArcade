@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Stack - High Rise Construction</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; /* Prevent double-tap zoom */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #score-display {
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            opacity: 0.8;
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto; /* Re-enable clicks for buttons */
+            background: rgba(0, 0, 0, 0.85);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 0;
+            font-size: 32px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: #aaa;
+            margin: 0;
+        }
+
+        .btn {
+            background: white;
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            text-transform: uppercase;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Combo Text Effect */
+        .combo-text {
+            position: absolute;
+            color: #fff;
+            font-weight: bold;
+            font-size: 24px;
+            animation: floatUp 1s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div id="score-display">0</div>
+    </div>
+
+    <div id="start-screen">
+        <h1>Neon Stack</h1>
+        <p>Tap to place the block.<br>Don't miss.</p>
+        <button class="btn" id="start-btn">Play Now</button>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1>Game Over</h1>
+        <p>Final Score</p>
+        <div id="final-score" style="font-size: 48px; color: white; margin: 10px 0;">0</div>
+        <button class="btn" id="restart-btn">Try Again</button>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const CONFIG = {
+        baseSpeed: 3,
+        speedIncrement: 0.1,
+        blockHeight: 30,
+        initialWidth: 200,
+        colors: [
+            '#ff0055', '#ff3333', '#ff6600', '#ff9900', '#ffff00', 
+            '#ccff00', '#66ff00', '#00ff66', '#00ffcc', '#00ccff', 
+            '#0066ff', '#3333ff', '#9900ff', '#cc00ff', '#ff00cc'
+        ]
+    };
+
+    // --- SETUP ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const scoreDisplay = document.getElementById('score-display');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const uiLayer = document.getElementById('ui-layer');
+
+    let state = {
+        isPlaying: false,
+        score: 0,
+        blocks: [],
+        currentBlock: null,
+        direction: 1, // 1 = right, -1 = left
+        speed: CONFIG.baseSpeed,
+        cameraY: 0,
+        debris: [] // Falling pieces
+    };
+
+    // Resize handling
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        // If playing, recenter the camera
+        if(state.isPlaying) {
+            state.cameraY = canvas.height - 100 - (state.blocks.length * CONFIG.blockHeight);
+        }
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- CLASSES ---
+
+    class Block {
+        constructor(x, y, width, color) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = CONFIG.blockHeight;
+            this.color = color;
+        }
+
+        draw() {
+            ctx.fillStyle = this.color;
+            // Draw main block
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Draw simple "3D" top highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(this.x, this.y, this.width, 4);
+            
+            // Draw simple "3D" side shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(this.x + this.width - 4, this.y, 4, this.height);
+        }
+    }
+
+    class Debris {
+        constructor(x, y, width, height, color) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.color = color;
+            this.vy = 0; // Vertical velocity
+            this.vx = (Math.random() - 0.5) * 2; // Slight horizontal spin
+            this.alpha = 1;
+        }
+
+        update() {
+            this.vy += 0.5; // Gravity
+            this.y += this.vy;
+            this.x += this.vx;
+            this.alpha -= 0.02; // Fade out
+        }
+
+        draw() {
+            ctx.globalAlpha = Math.max(0, this.alpha);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // --- GAME LOGIC ---
+
+    function initGame() {
+        state.score = 0;
+        state.speed = CONFIG.baseSpeed;
+        state.direction = 1;
+        state.blocks = [];
+        state.debris = [];
+        state.isPlaying = true;
+        scoreDisplay.textContent = "0";
+
+        // Base block (immovable foundation)
+        const baseBlock = new Block(
+            (canvas.width / 2) - (CONFIG.initialWidth / 2),
+            canvas.height - 100,
+            CONFIG.initialWidth,
+            CONFIG.colors[0]
+        );
+        state.blocks.push(baseBlock);
+
+        // Camera setup
+        state.cameraY = 0;
+
+        spawnNextBlock();
+        
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        
+        requestAnimationFrame(loop);
+    }
+
+    function spawnNextBlock() {
+        const prevBlock = state.blocks[state.blocks.length - 1];
+        const color = CONFIG.colors[state.blocks.length % CONFIG.colors.length];
+        
+        // Start either from far left or far right
+        let startX = state.direction === 1 ? -prevBlock.width : canvas.width;
+        
+        state.currentBlock = {
+            x: startX,
+            y: prevBlock.y - CONFIG.blockHeight,
+            width: prevBlock.width,
+            color: color,
+            targetY: prevBlock.y - CONFIG.blockHeight
+        };
+    }
+
+    function placeBlock() {
+        if (!state.isPlaying || !state.currentBlock) return;
+
+        const current = state.currentBlock;
+        const prev = state.blocks[state.blocks.length - 1];
+
+        const distance = current.x - prev.x;
+        const overlap = prev.width - Math.abs(distance);
+
+        if (overlap > 0) {
+            // Hit!
+            state.score++;
+            scoreDisplay.textContent = state.score;
+            
+            // Speed up slightly
+            state.speed += CONFIG.speedIncrement;
+
+            let newWidth = overlap;
+            let newX = prev.x + (distance > 0 ? distance : 0);
+
+            // Create the Debris (falling part)
+            let debrisX = distance > 0 ? (current.x + current.width - Math.abs(distance)) : current.x;
+            let debrisWidth = Math.abs(distance);
+            state.debris.push(new Debris(debrisX, current.y, debrisWidth, CONFIG.blockHeight, current.color));
+
+            // Add the new permanent block
+            const newBlock = new Block(newX, current.y, newWidth, current.color);
+            state.blocks.push(newBlock);
+
+            // Flip direction for next block
+            state.direction *= -1;
+            spawnNextBlock();
+
+            // Flash effect for perfect hits (optional logic could go here)
+        } else {
+            // Miss - Game Over
+            gameOver();
+        }
+    }
+
+    function gameOver() {
+        state.isPlaying = false;
+        
+        // Show falling debris for the block that missed
+        if(state.currentBlock) {
+            state.debris.push(new Debris(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, CONFIG.blockHeight, state.currentBlock.color));
+        }
+
+        setTimeout(() => {
+            finalScoreDisplay.textContent = state.score;
+            gameOverScreen.classList.remove('hidden');
+        }, 500);
+    }
+
+    function loop() {
+        if (!state.isPlaying && state.debris.length === 0) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update Logic
+        if (state.isPlaying && state.currentBlock) {
+            state.currentBlock.x += state.speed * state.direction;
+
+            // Bounce off walls (optional, but usually in stack games it just flies off)
+            // We'll check if it goes too far just to reset direction if user falls asleep? 
+            // Nah, classic stack logic: it moves linearly. We just need to ensure it spawns far enough back.
+        }
+
+        // Camera Logic (smooth scroll up)
+        // We want the top of the stack to be at roughly 60% of the screen height
+        const targetCamY = (state.blocks.length * CONFIG.blockHeight) - (canvas.height * 0.4);
+        // Only move camera up, never down (unless reset)
+        if(targetCamY > -state.cameraY) {
+           state.cameraY = -targetCamY; 
+        }
+        
+        // Smooth lerp for camera could be added here, but direct mapping is snappier for this game type
+
+        ctx.save();
+        ctx.translate(0, state.cameraY); // Apply camera offset
+
+        // Draw Blocks
+        state.blocks.forEach(block => block.draw());
+
+        // Draw Current Moving Block
+        if (state.isPlaying && state.currentBlock) {
+            ctx.fillStyle = state.currentBlock.color;
+            ctx.fillRect(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, CONFIG.blockHeight);
+            // Highlights for current block
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, 4);
+        }
+
+        // Update & Draw Debris
+        for (let i = state.debris.length - 1; i >= 0; i--) {
+            const p = state.debris[i];
+            p.update();
+            p.draw();
+            if (p.alpha <= 0 || p.y > canvas.height - state.cameraY) {
+                state.debris.splice(i, 1);
+            }
+        }
+
+        ctx.restore();
+
+        requestAnimationFrame(loop);
+    }
+
+    // --- INPUT HANDLERS ---
+
+    function handleInput(e) {
+        // Prevent default touch actions to stop zooming/scrolling
+        if(e.type === 'touchstart') e.preventDefault();
+
+        if (state.isPlaying) {
+            placeBlock();
+        }
+    }
+
+    // Start Button
+    document.getElementById('start-btn').addEventListener('click', initGame);
+    document.getElementById('restart-btn').addEventListener('click', initGame);
+
+    // Game Input (Mouse & Touch)
+    // Use 'pointerdown' to cover both mouse and touch efficiently
+    document.addEventListener('pointerdown', (e) => {
+        // Ignore clicks on UI buttons
+        if (e.target.tagName === 'BUTTON') return;
+        handleInput(e);
+    });
+
+    // Spacebar support
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && state.isPlaying) {
+            placeBlock();
+        }
+    });
+
+</script>
+</body>
+</html>

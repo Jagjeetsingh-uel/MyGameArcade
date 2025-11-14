@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber Swing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #050510;
+            --accent: #00ff9d; /* Cyber Green */
+            --secondary: #00d2ff; /* Cyber Blue */
+            --danger: #ff0055; /* Cyber Red */
+            --ui-bg: rgba(255, 255, 255, 0.05);
+            --font-main: 'Rajdhani', sans-serif;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: var(--bg-color);
+            font-family: var(--font-main);
+            color: white;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .hud {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .score-container { text-align: left; }
+
+        .score-val {
+            font-size: 3.5rem; font-weight: 900; line-height: 1;
+            background: linear-gradient(to bottom, #fff, var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0, 255, 157, 0.5));
+        }
+
+        .label { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; }
+
+        .btn-pause {
+            width: 50px; height: 50px;
+            border-radius: 12px;
+            background: var(--ui-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: none; /* Hidden by default, shown in JS */
+            justify-content: center; align-items: center;
+            font-size: 1.5rem; cursor: pointer; color: var(--accent);
+            transition: all 0.2s;
+            pointer-events: auto; /* Ensure it catches clicks */
+        }
+        .btn-pause:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+
+        /* MILESTONE POPUP */
+        #milestonePopup {
+            position: absolute; top: 40%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 4rem; font-weight: 900; color: #fff;
+            text-shadow: 0 0 20px var(--secondary);
+            opacity: 0; pointer-events: none;
+            white-space: nowrap;
+            text-align: center;
+        }
+        #milestonePopup.anim { animation: popMilestone 2s forwards; }
+
+        @keyframes popMilestone {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+        }
+
+        /* --- MENUS --- */
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.9);
+            backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20;
+            transition: opacity 0.3s ease;
+            opacity: 0; pointer-events: none;
+        }
+        .menu-overlay.active { opacity: 1; pointer-events: auto; }
+
+        /* TUTORIAL SPECIFIC STYLE (CLEAR) */
+        #tutorialOverlay {
+            background: transparent; /* No background */
+            backdrop-filter: none; /* No blur */
+            justify-content: space-between; /* Space out top text and bottom button */
+            padding: 40px 20px;
+        }
+
+        /* TOP TUTORIAL TEXT */
+        .tutorial-header {
+            margin-top: 60px; /* Space from top */
+            text-align: center;
+            background: rgba(0,0,0,0.6);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            pointer-events: none;
+        }
+        
+        .step-row {
+            display: flex; align-items: center; justify-content: center; gap: 15px; margin: 10px 0;
+        }
+        .step-icon { font-size: 1.5rem; }
+        .step-text { font-size: 1.2rem; font-weight: bold; color: #fff; }
+
+        /* BOTTOM PLAY BUTTON */
+        .play-btn-container {
+            width: 100%;
+            display: flex; justify-content: flex-end; /* Align right */
+        }
+
+        .btn-play-corner {
+            background: var(--accent); color: #000;
+            border: none; padding: 15px 40px;
+            font-family: var(--font-main); font-weight: 900; font-size: 1.5rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 255, 157, 0.6);
+            animation: pulseBtn 2s infinite;
+            pointer-events: auto; /* Make sure it's clickable */
+        }
+        @keyframes pulseBtn { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+
+        .card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 40px; border-radius: 20px;
+            text-align: center; width: 85%; max-width: 350px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+        }
+
+        h1 {
+            margin: 0; font-size: 3rem; text-transform: uppercase;
+            font-style: italic; font-weight: 900;
+            color: white; letter-spacing: -1px;
+            margin-bottom: 10px;
+        }
+
+        p { color: #aaa; margin-bottom: 30px; font-size: 1.1rem; }
+
+        .btn-primary {
+            background: var(--accent); color: #000;
+            border: none; width: 100%; padding: 18px;
+            font-family: var(--font-main); font-weight: 900; font-size: 1.4rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 8px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 255, 157, 0.4);
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.96); box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
+
+        .btn-secondary {
+            background: transparent; color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            margin-top: 10px;
+            width: 100%; padding: 12px;
+            border-radius: 8px; cursor: pointer;
+            font-family: var(--font-main);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        
+        #tutorial-hint {
+            position: absolute; bottom: 10%; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.6); font-size: 1.1rem; font-weight: 700;
+            animation: pulse 2s infinite; pointer-events: none;
+        }
+
+        @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+        /* Glitch Effect Text */
+        .glitch-text { position: relative; }
+        .glitch-text::before, .glitch-text::after {
+            content: 'GAME OVER';
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #050510; opacity: 0.8;
+        }
+        .glitch-text::before { color: var(--danger); z-index: -1; animation: glitch-1 2s infinite linear alternate-reverse; }
+        .glitch-text::after { color: var(--secondary); z-index: -2; animation: glitch-2 2s infinite linear alternate-reverse; }
+
+        @keyframes glitch-1 { 0% {transform: translate(0)} 20% {transform: translate(-2px, 2px)} 40% {transform: translate(-2px, -2px)} 60% {transform: translate(2px, 2px)} 80% {transform: translate(2px, -2px)} 100% {transform: translate(0)} }
+        @keyframes glitch-2 { 0% {transform: translate(0)} 20% {transform: translate(2px, -2px)} 40% {transform: translate(2px, 2px)} 60% {transform: translate(-2px, -2px)} 80% {transform: translate(-2px, 2px)} 100% {transform: translate(0)} }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud">
+            <div class="score-container">
+                <div class="score-val" id="scoreVal">0</div>
+                <div class="label" id="highScoreVal">BEST: 0m</div>
+            </div>
+            <!-- Pause Button -->
+            <div class="btn-pause" id="pauseBtn">||</div>
+        </div>
+        <div id="tutorial-hint">TAP & HOLD to Swing • RELEASE to Fly</div>
+        <div id="milestonePopup">100M REACHED</div>
+    </div>
+
+    <!-- TUTORIAL OVERLAY (TRANSPARENT) -->
+    <div id="tutorialOverlay" class="menu-overlay">
+        <div class="tutorial-header">
+            <div class="step-row">
+                <span class="step-icon">👇</span>
+                <span class="step-text">HOLD to Swing</span>
+            </div>
+            <div class="step-row">
+                <span class="step-icon">🚀</span>
+                <span class="step-text">RELEASE to Fly</span>
+            </div>
+            <div style="margin-top:10px; font-size:0.9rem; opacity:0.8">(Watch the AI Demo)</div>
+        </div>
+        
+        <div class="play-btn-container">
+            <button class="btn-play-corner" id="skipTutorialBtn">PLAY ▶</button>
+        </div>
+    </div>
+
+    <!-- START MENU -->
+    <div id="startMenu" class="menu-overlay">
+        <div class="card">
+            <h1>Cyber<br><span style="color:var(--accent)">Swing</span></h1>
+            <p>Climb the infinite shaft.<br>Outrun the glitch.</p>
+            <button class="btn-primary" id="startBtn">INITIATE</button>
+            <button class="btn-secondary" id="replayTutorialBtn">HOW TO PLAY</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER MENU -->
+    <div id="gameOverMenu" class="menu-overlay">
+        <div class="card">
+            <h1 class="glitch-text" style="font-size: 2.5rem; color: var(--danger)">GAME OVER</h1>
+            <p>Height Reached: <span id="finalScore" style="color:white; font-weight:bold">0</span>m</p>
+            <button class="btn-primary" id="retryBtn">REBOOT</button>
+        </div>
+    </div>
+
+<script>
+    /**
+     * CYBER SWING V2
+     * - Clear Tutorial Overlay
+     * - Progressive Difficulty
+     * - Milestone Animations
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const ui = {
+        score: document.getElementById('scoreVal'),
+        highScore: document.getElementById('highScoreVal'),
+        startMenu: document.getElementById('startMenu'),
+        gameOverMenu: document.getElementById('gameOverMenu'),
+        tutorialOverlay: document.getElementById('tutorialOverlay'),
+        finalScore: document.getElementById('finalScore'),
+        pauseBtn: document.getElementById('pauseBtn'),
+        tutorialHint: document.getElementById('tutorial-hint'),
+        milestonePopup: document.getElementById('milestonePopup')
+    };
+
+    // CONFIG
+    const CFG = {
+        gravity: 0.25,
+        friction: 0.99,
+        ropeLength: 200, 
+        cameraSmooth: 0.1,
+        colors: {
+            player: '#fff',
+            rope: '#00ff9d',
+            peg: '#00d2ff',
+            glitch: '#ff0055'
+        }
+    };
+
+    // STATE
+    let state = {
+        running: false,
+        paused: false,
+        isDemo: false,
+        score: 0,
+        highScore: parseInt(localStorage.getItem('cyberSwingHigh') || 0),
+        cameraY: 0,
+        glitchY: 0,
+        glitchSpeed: 0.5, // Default starting speed
+        lastMilestone: 0
+    };
+
+    let player = {
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        radius: 10,
+        hookedTo: null, 
+        trail: [] 
+    };
+
+    let pegs = [];
+    let particles = [];
+
+    // INIT
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if(!state.running) {
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 200;
+        }
+    }
+    window.addEventListener('resize', resize);
+
+    function initSystem() {
+        const seen = localStorage.getItem('cyberSwing_tutorial');
+        if (!seen) {
+            startDemoMode();
+        } else {
+            showStartMenu();
+        }
+    }
+
+    function startDemoMode() {
+        resetGame(true);
+        ui.startMenu.classList.remove('active');
+        ui.gameOverMenu.classList.remove('active');
+        ui.tutorialOverlay.classList.add('active'); // Shows clear overlay
+        ui.tutorialHint.style.display = 'none';
+        
+        // HIDE Pause Button in Demo
+        ui.pauseBtn.style.display = 'none';
+    }
+
+    function showStartMenu() {
+        state.running = false;
+        state.isDemo = false;
+        ui.tutorialOverlay.classList.remove('active');
+        ui.gameOverMenu.classList.remove('active');
+        ui.startMenu.classList.add('active');
+        
+        // HIDE Pause Button in Menu
+        ui.pauseBtn.style.display = 'none';
+    }
+
+    function resetGame(isDemo = false) {
+        state.running = true;
+        state.paused = false;
+        state.isDemo = isDemo;
+        state.score = 0;
+        state.cameraY = 0;
+        state.lastMilestone = 0;
+        
+        // Difficulty Reset
+        state.glitchSpeed = isDemo ? 0.5 : 0.5; // Start slow for both
+
+        player.x = canvas.width / 2;
+        player.y = canvas.height - 150;
+        player.vx = 0; 
+        player.vy = -10;
+        player.hookedTo = null;
+        player.trail = [];
+
+        state.glitchY = canvas.height + 100; 
+
+        pegs = [];
+        generatePegs(-1000);
+
+        ui.score.innerText = "0";
+        ui.highScore.innerText = `BEST: ${state.highScore}m`;
+        
+        if(!isDemo) {
+            ui.startMenu.classList.remove('active');
+            ui.gameOverMenu.classList.remove('active');
+            ui.tutorialOverlay.classList.remove('active');
+            ui.tutorialHint.style.display = 'block';
+            
+            // SHOW Pause Button when playing
+            ui.pauseBtn.style.display = 'flex';
+            ui.pauseBtn.innerText = '||';
+        } else {
+            ui.pauseBtn.style.display = 'none';
+        }
+
+        loop();
+    }
+
+    function generatePegs(targetY) {
+        let startY = pegs.length > 0 ? pegs[pegs.length-1].y : canvas.height - 300;
+        while (startY > targetY) {
+            startY -= (60 + Math.random() * 80);
+            const peg = {
+                x: (Math.random() * (canvas.width - 100)) + 50,
+                y: startY,
+                radius: 6,
+                active: false
+            };
+            pegs.push(peg);
+        }
+    }
+
+    // --- ACTION LOGIC ---
+
+    function tryHook() {
+        let closest = null;
+        let minDist = CFG.ropeLength;
+
+        for (let i = pegs.length - 1; i >= 0; i--) {
+            let p = pegs[i];
+            let dx = p.x - player.x;
+            let dy = p.y - player.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (p.y > player.y + CFG.ropeLength) break; 
+
+            if (dist < minDist && p.y < player.y + 50) { 
+                minDist = dist;
+                closest = p;
+            }
+        }
+
+        if (closest) {
+            player.hookedTo = closest;
+            closest.active = true;
+            createBurst(closest.x, closest.y, CFG.colors.peg);
+            ui.tutorialHint.style.display = 'none';
+        }
+    }
+
+    function releaseHook() {
+        if (player.hookedTo) {
+            player.hookedTo.active = false;
+            player.hookedTo = null;
+        }
+    }
+
+    // --- AUTO PILOT (AI) ---
+    function autoPilot() {
+        if(!state.isDemo) return;
+
+        if (!player.hookedTo) {
+            let bestPeg = null;
+            for(let p of pegs) {
+                let dy = p.y - player.y;
+                let dx = p.x - player.x;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < CFG.ropeLength && p.y < player.y - 50) {
+                    bestPeg = p;
+                    break; 
+                }
+            }
+            if(bestPeg) tryHook();
+        } 
+        else {
+            let peg = player.hookedTo;
+            if (player.vy < -2 && player.y < peg.y) releaseHook();
+            if (player.vy > 0 && player.y > peg.y + 50) releaseHook();
+        }
+
+        if (player.y > state.cameraY + canvas.height + 100) {
+             player.y = state.cameraY + canvas.height - 200;
+             player.x = canvas.width/2;
+             player.vy = -15;
+             player.vx = 0;
+             state.glitchY = state.cameraY + canvas.height + 500; 
+        }
+    }
+
+    // --- INPUT HANDLING ---
+    function handleInputStart(e) {
+        if (!state.running || state.paused || state.isDemo) return;
+        e.preventDefault();
+        tryHook();
+    }
+
+    function handleInputEnd(e) {
+        if (!state.running || state.isDemo) return;
+        e.preventDefault();
+        releaseHook();
+    }
+
+    canvas.addEventListener('mousedown', handleInputStart);
+    canvas.addEventListener('touchstart', handleInputStart, {passive: false});
+    window.addEventListener('mouseup', handleInputEnd);
+    window.addEventListener('touchend', handleInputEnd);
+
+    document.getElementById('startBtn').addEventListener('click', () => resetGame(false));
+    document.getElementById('retryBtn').addEventListener('click', () => resetGame(false));
+    
+    document.getElementById('skipTutorialBtn').addEventListener('click', () => {
+        localStorage.setItem('cyberSwing_tutorial', 'true');
+        showStartMenu();
+    });
+    
+    document.getElementById('replayTutorialBtn').addEventListener('click', () => {
+        startDemoMode();
+    });
+
+    // PAUSE LOGIC
+    function togglePause(e) {
+        // Stop propagation to prevent game trying to hook
+        if(e) {
+            e.stopPropagation(); 
+            e.preventDefault();
+        }
+        
+        if(!state.running || state.isDemo) return;
+        
+        state.paused = !state.paused;
+        ui.pauseBtn.innerText = state.paused ? "▶" : "||";
+        
+        if(!state.paused) {
+            loop();
+        } else {
+            draw(); // Draw once to show PAUSED text
+        }
+    }
+
+    ui.pauseBtn.addEventListener('click', togglePause);
+    ui.pauseBtn.addEventListener('touchstart', togglePause, {passive: false}); // Better mobile response
+
+    // MILESTONE EFFECT
+    function triggerMilestone(val) {
+        ui.milestonePopup.innerText = `${val}M REACHED`;
+        ui.milestonePopup.classList.remove('anim');
+        void ui.milestonePopup.offsetWidth; // Trigger reflow
+        ui.milestonePopup.classList.add('anim');
+        
+        // Burst of particles at player pos
+        createBurst(player.x, player.y, '#fff');
+    }
+
+    // PHYSICS ENGINE
+    function update() {
+        if(state.isDemo) autoPilot();
+
+        // Glitch Logic (Water)
+        state.glitchY -= state.glitchSpeed;
+        
+        // Hard cap glitch speed
+        if (!state.isDemo) {
+             if(state.glitchSpeed < 5) {
+                 // Increase speed very slowly over time anyway
+                 state.glitchSpeed += 0.0001;
+             }
+        }
+        
+        // Game Over Check
+        if (!state.isDemo && state.glitchY < player.y - canvas.height/2) {
+             gameOver();
+             return;
+        }
+
+        // Physics
+        if (player.hookedTo) {
+            let peg = player.hookedTo;
+            let dx = peg.x - player.x;
+            let dy = peg.y - player.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+
+            player.vy += CFG.gravity;
+            let angle = Math.atan2(dy, dx);
+            let ax = Math.cos(angle) * 0.8;
+            let ay = Math.sin(angle) * 0.8;
+            
+            player.vx += ax;
+            player.vy += ay;
+            player.vx *= 0.99;
+            player.vy *= 0.99;
+
+            if (Math.random() > 0.8) {
+                particles.push({
+                    x: player.x + (Math.random()-0.5)*5,
+                    y: player.y + (Math.random()-0.5)*5,
+                    vx: 0, vy: 0, life: 0.5, color: CFG.colors.rope
+                });
+            }
+        } else {
+            player.vy += CFG.gravity;
+            player.vx *= CFG.friction;
+            player.x += player.vx;
+            player.y += player.vy;
+        }
+
+        if (player.hookedTo) {
+            player.x += player.vx;
+            player.y += player.vy;
+        }
+
+        if (player.x < 0) { player.x = 0; player.vx *= -0.8; }
+        if (player.x > canvas.width) { player.x = canvas.width; player.vx *= -0.8; }
+
+        // Camera
+        let targetCamY = player.y - (canvas.height * 0.6);
+        if (targetCamY < state.cameraY) {
+            state.cameraY += (targetCamY - state.cameraY) * CFG.cameraSmooth;
+        }
+
+        // Score & Milestones
+        let currentHeight = Math.floor((canvas.height - player.y) / 10);
+        if (currentHeight > state.score) {
+            state.score = currentHeight;
+            ui.score.innerText = state.score;
+
+            // Check Milestone every 100m
+            if (!state.isDemo && state.score >= state.lastMilestone + 100) {
+                state.lastMilestone += 100;
+                triggerMilestone(state.lastMilestone);
+                
+                // Increase Glitch Speed
+                state.glitchSpeed += 0.2;
+            }
+        }
+        
+        // Level Gen
+        if (pegs[pegs.length-1].y > state.cameraY - 100) {
+            generatePegs(state.cameraY - 1000);
+        }
+
+        // Cleanup
+        if (pegs.length > 0 && pegs[0].y > state.cameraY + canvas.height + 200) {
+            pegs.shift();
+        }
+
+        // Trail
+        player.trail.push({x:player.x, y:player.y});
+        if(player.trail.length > 10) player.trail.shift();
+    }
+
+    function createBurst(x, y, color) {
+        for(let i=0; i<15; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random()-0.5)*12,
+                vy: (Math.random()-0.5)*12,
+                life: 1, color: color
+            });
+        }
+    }
+
+    // RENDER
+    function draw() {
+        ctx.fillStyle = '#050510';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(0, -state.cameraY);
+
+        // Glitch
+        let gY = state.glitchY;
+        let grad = ctx.createLinearGradient(0, gY, 0, gY + 500);
+        grad.addColorStop(0, CFG.colors.glitch);
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, gY, canvas.width, canvas.height * 2);
+        
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, gY);
+        for(let i=0; i<canvas.width; i+=20) {
+            ctx.lineTo(i, gY + (Math.random()*10));
+        }
+        ctx.stroke();
+
+        // Rope
+        if (player.hookedTo) {
+            ctx.strokeStyle = CFG.colors.rope;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(player.hookedTo.x, player.hookedTo.y);
+            ctx.stroke();
+
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = CFG.colors.rope;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // Pegs
+        pegs.forEach(p => {
+            if (p.y > state.cameraY + canvas.height || p.y < state.cameraY) return;
+
+            ctx.fillStyle = p.active ? '#fff' : CFG.colors.peg;
+            if(p.active) ctx.shadowBlur = 15; ctx.shadowColor = CFG.colors.peg;
+            
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.active ? 8 : 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+
+        // Player
+        ctx.strokeStyle = `rgba(0, 255, 157, 0.3)`;
+        ctx.lineWidth = player.radius;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        if(player.trail.length > 0) ctx.moveTo(player.trail[0].x, player.trail[0].y);
+        player.trail.forEach(t => ctx.lineTo(t.x, t.y));
+        ctx.stroke();
+
+        ctx.fillStyle = CFG.colors.player;
+        ctx.shadowBlur = 20; ctx.shadowColor = CFG.colors.player;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy;
+            p.life -= 0.05;
+            
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+            
+            if(p.life <= 0) particles.splice(i,1);
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.restore();
+
+        // Draw Pause Text Overlay
+        if(state.paused) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillStyle = "#fff";
+            ctx.font = "30px 'Rajdhani', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("PAUSED", canvas.width/2, canvas.height/2);
+        }
+    }
+
+    function loop() {
+        if (!state.running || state.paused) return;
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+        state.running = false;
+        // HIDE Pause Btn
+        ui.pauseBtn.style.display = 'none';
+        
+        if(state.score > state.highScore) {
+            state.highScore = state.score;
+            localStorage.setItem('cyberSwingHigh', state.highScore);
+        }
+        ui.finalScore.innerText = state.score;
+        ui.gameOverMenu.classList.add('active');
+        createBurst(player.x, player.y, CFG.colors.glitch);
+        draw();
+    }
+
+    // START
+    resize();
+    initSystem();
+
+</script>
+</body>
+</html>

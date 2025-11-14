@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Void Weaver v2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jura:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #050510;
+            --player: #ffffff;
+            --leash: #00d2ff;
+            --orb: #00ff9d;
+            --mine: #ff0055;
+            --shield: #ffd700;
+            --font-main: 'Jura', sans-serif;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: var(--bg);
+            font-family: var(--font-main);
+            color: white;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .hud {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+
+        .score-val {
+            font-size: 3.5rem; font-weight: 700; line-height: 1;
+            color: var(--orb);
+            text-shadow: 0 0 10px var(--orb);
+        }
+
+        .label { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; }
+
+        /* --- MENUS --- */
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 5, 0.6); /* More transparent to see demo */
+            backdrop-filter: blur(5px); /* Less blur */
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20;
+            transition: opacity 0.3s ease;
+            opacity: 0; pointer-events: none;
+        }
+        .menu-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .card {
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid var(--leash);
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+            padding: 40px; border-radius: 10px;
+            text-align: center; width: 85%; max-width: 350px;
+            position: relative;
+        }
+
+        h1 {
+            margin: 0; font-size: 3rem; text-transform: uppercase;
+            font-weight: 700;
+            color: white; letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .tutorial-box {
+            background: rgba(255,255,255,0.05);
+            padding: 15px; border-radius: 5px;
+            margin-bottom: 20px; text-align: left;
+        }
+
+        .tut-row { display: flex; align-items: center; margin: 10px 0; font-size: 1.1rem; }
+        .tut-icon { font-size: 1.5rem; margin-right: 10px; width: 30px; text-align: center; }
+
+        .btn-primary {
+            background: var(--leash); color: #000;
+            border: none; width: 100%; padding: 18px;
+            font-family: var(--font-main); font-weight: 700; font-size: 1.4rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 4px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.4);
+            transition: transform 0.1s, box-shadow 0.2s;
+            animation: pulseBtn 2s infinite;
+        }
+        @keyframes pulseBtn { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+        .btn-primary:active { transform: scale(0.96); }
+
+        /* Demo Label */
+        #demoLabel {
+            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            font-size: 1.2rem; color: rgba(255,255,255,0.5); letter-spacing: 3px;
+            text-transform: uppercase; animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100% {opacity:0.3} 50% {opacity:0.8} }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud">
+            <div>
+                <div class="score-val" id="scoreVal">0</div>
+                <div class="label">ORBS</div>
+            </div>
+            <div style="text-align: right;">
+                <div class="score-val" id="highScoreVal" style="color: #fff; opacity: 0.5; font-size: 2rem;">0</div>
+                <div class="label">BEST</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- START MENU -->
+    <div id="startMenu" class="menu-overlay active">
+        <div class="card">
+            <h1>Void<br><span style="color:var(--leash)">Weaver</span></h1>
+            
+            <div class="tutorial-box">
+                <div class="tut-row">
+                    <span class="tut-icon">👇</span>
+                    <span><b>TAP & HOLD</b> to create a Gravity Well.</span>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon">💫</span>
+                    <span>Your ship will <b>ORBIT</b> your finger.</span>
+                </div>
+                <div class="tut-row">
+                    <span class="tut-icon">🚀</span>
+                    <span><b>RELEASE</b> to slingshot away.</span>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="startBtn">TAKE CONTROL</button>
+        </div>
+        <div id="demoLabel">AI AUTO-PILOT ENGAGED</div>
+    </div>
+
+    <!-- GAME OVER MENU -->
+    <div id="gameOverMenu" class="menu-overlay">
+        <div class="card" style="border-color:var(--mine); box-shadow: 0 0 30px rgba(255, 0, 85, 0.2);">
+            <h1 style="color:var(--mine)">SIGNAL LOST</h1>
+            <p style="font-size: 1.2rem; color:#ccc; margin-bottom:30px;">
+                Orbs Collected: <span id="finalScore" style="color:white; font-weight:bold">0</span>
+            </p>
+            <button class="btn-primary" id="retryBtn" style="background:var(--mine); box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);">RETRY</button>
+        </div>
+    </div>
+
+<script>
+    /**
+     * VOID WEAVER V2
+     * - AI Demo Mode
+     * - Bouncy Walls (No edge death)
+     * - Improved Physics Visualization
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const ui = {
+        score: document.getElementById('scoreVal'),
+        highScore: document.getElementById('highScoreVal'),
+        startMenu: document.getElementById('startMenu'),
+        gameOverMenu: document.getElementById('gameOverMenu'),
+        finalScore: document.getElementById('finalScore'),
+        demoLabel: document.getElementById('demoLabel')
+    };
+
+    // Config
+    const CFG = {
+        player: {
+            radius: 8,
+            dampening: 0.995, // Less friction in space
+            leashStiffness: 0.05, // Softer spring for easier control
+            maxSpeed: 15
+        },
+        orb: { radius: 6, count: 4 },
+        mine: { radius: 12, count: 3 }
+    };
+
+    // State
+    let state = {
+        mode: 'demo', // 'demo' or 'playing'
+        score: 0,
+        highScore: parseInt(localStorage.getItem('voidWeaverHigh') || 0),
+        isHolding: false,
+        pivot: { x: 0, y: 0 }, // Where the gravity well is
+        starfield: [],
+        lastDeathX: 0, lastDeathY: 0
+    };
+
+    // Entities
+    let player = { x: 0, y: 0, vx: 0, vy: 0, trail: [] };
+    let orbs = [];
+    let mines = [];
+    let particles = [];
+
+    // --- INIT ---
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if (state.mode === 'demo') {
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+        }
+    }
+    window.addEventListener('resize', resize);
+
+    function createStarfield() {
+        state.starfield = [];
+        for (let i = 0; i < 80; i++) {
+            state.starfield.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2,
+                opacity: Math.random() * 0.5 + 0.1
+            });
+        }
+    }
+
+    function initGame(isDemo) {
+        state.mode = isDemo ? 'demo' : 'playing';
+        state.score = 0;
+        state.isHolding = false;
+        
+        // Reset Player
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
+        // Give initial nudge for demo
+        player.vx = isDemo ? 2 : 0;
+        player.vy = isDemo ? 2 : 0;
+        player.trail = [];
+
+        orbs = [];
+        mines = [];
+        particles = [];
+        
+        for (let i = 0; i < CFG.orb.count; i++) spawnOrb();
+        for (let i = 0; i < CFG.mine.count; i++) spawnMine();
+
+        ui.score.innerText = "0";
+        ui.highScore.innerText = state.highScore;
+
+        if (isDemo) {
+            ui.startMenu.classList.add('active');
+            ui.gameOverMenu.classList.remove('active');
+        } else {
+            ui.startMenu.classList.remove('active');
+            ui.gameOverMenu.classList.remove('active');
+        }
+
+        loop();
+    }
+
+    function spawnOrb() {
+        orbs.push({
+            x: Math.random() * (canvas.width - 40) + 20,
+            y: Math.random() * (canvas.height - 40) + 20
+        });
+    }
+
+    function spawnMine() {
+        // Safe spawn logic
+        let x, y, dist;
+        let safeDist = state.mode === 'demo' ? 100 : 200;
+        do {
+            x = Math.random() * (canvas.width - 60) + 30;
+            y = Math.random() * (canvas.height - 60) + 30;
+            let dx = x - player.x;
+            let dy = y - player.y;
+            dist = Math.sqrt(dx*dx + dy*dy);
+        } while (dist < safeDist); 
+
+        mines.push({
+            x: x, y: y,
+            angle: Math.random() * Math.PI,
+            pulse: 0
+        });
+    }
+
+    // --- INPUT ---
+    function handleInputStart(e) {
+        if (state.mode !== 'playing') return;
+        e.preventDefault();
+        state.isHolding = true;
+        updatePivot(e);
+    }
+
+    function handleInputMove(e) {
+        if (state.mode !== 'playing' || !state.isHolding) return;
+        e.preventDefault();
+        updatePivot(e);
+    }
+
+    function updatePivot(e) {
+        state.pivot.x = e.clientX || e.touches[0].clientX;
+        state.pivot.y = e.clientY || e.touches[0].clientY;
+    }
+
+    function handleInputEnd(e) {
+        if (state.mode !== 'playing') return;
+        e.preventDefault();
+        state.isHolding = false;
+    }
+
+    canvas.addEventListener('mousedown', handleInputStart);
+    canvas.addEventListener('touchstart', handleInputStart, { passive: false });
+    canvas.addEventListener('mousemove', handleInputMove);
+    canvas.addEventListener('touchmove', handleInputMove, { passive: false });
+    window.addEventListener('mouseup', handleInputEnd);
+    window.addEventListener('touchend', handleInputEnd);
+
+    document.getElementById('startBtn').addEventListener('click', () => initGame(false));
+    document.getElementById('retryBtn').addEventListener('click', () => initGame(false));
+
+    // --- AI DEMO LOGIC ---
+    function runAutoPilot() {
+        // 1. Find nearest orb
+        let nearest = null;
+        let minDist = Infinity;
+        for(let o of orbs) {
+            let d = Math.hypot(o.x - player.x, o.y - player.y);
+            if(d < minDist) { minDist = d; nearest = o; }
+        }
+
+        if(nearest) {
+            // Simple AI: If moving away from orb, anchor to center to swing back
+            // Or anchor perpendicular to create orbit
+            
+            // Check if we are about to hit a wall
+            if (player.x < 50 || player.x > canvas.width - 50 || player.y < 50 || player.y > canvas.height - 50) {
+                // Pull back to center
+                state.isHolding = true;
+                state.pivot.x = canvas.width / 2;
+                state.pivot.y = canvas.height / 2;
+            } 
+            // Else, if near orb, release to glide
+            else if (minDist < 100) {
+                state.isHolding = false;
+            }
+            // Else, swing towards it
+            else {
+                 state.isHolding = true;
+                 // Orbit point is roughly the orb itself for demo purposes
+                 state.pivot.x = nearest.x;
+                 state.pivot.y = nearest.y;
+            }
+        }
+    }
+
+    // --- PHYSICS ---
+    function update() {
+        if (state.mode === 'demo') runAutoPilot();
+
+        // 1. Player Physics
+        if (state.isHolding) {
+            let dx = state.pivot.x - player.x;
+            let dy = state.pivot.y - player.y;
+            
+            // Force
+            let forceX = dx * CFG.player.leashStiffness;
+            let forceY = dy * CFG.player.leashStiffness;
+            
+            player.vx += forceX;
+            player.vy += forceY;
+            player.vx *= CFG.player.dampening;
+            player.vy *= CFG.player.dampening;
+            
+        } else {
+            // Drift
+            player.vx *= 0.998; 
+            player.vy *= 0.998;
+        }
+
+        // Speed Cap
+        let speed = Math.hypot(player.vx, player.vy);
+        if(speed > CFG.player.maxSpeed) {
+            let scale = CFG.player.maxSpeed / speed;
+            player.vx *= scale;
+            player.vy *= scale;
+        }
+
+        player.x += player.vx;
+        player.y += player.vy;
+
+        // 2. Wall Bouncing (SAFETY NET)
+        if (player.x < 0) { player.x = 0; player.vx *= -0.8; wallHit(0, player.y); }
+        if (player.x > canvas.width) { player.x = canvas.width; player.vx *= -0.8; wallHit(canvas.width, player.y); }
+        if (player.y < 0) { player.y = 0; player.vy *= -0.8; wallHit(player.x, 0); }
+        if (player.y > canvas.height) { player.y = canvas.height; player.vy *= -0.8; wallHit(player.x, canvas.height); }
+
+        // 3. Trail
+        player.trail.push({x: player.x, y: player.y});
+        if (player.trail.length > 25) player.trail.shift();
+
+        // 4. Collisions
+        // Orbs
+        for (let i = orbs.length - 1; i >= 0; i--) {
+            let dist = Math.hypot(orbs[i].x - player.x, orbs[i].y - player.y);
+            if (dist < CFG.player.radius + CFG.orb.radius + 10) {
+                orbs.splice(i, 1);
+                spawnOrb();
+                if(state.mode === 'playing') {
+                    state.score++;
+                    ui.score.innerText = state.score;
+                }
+                createBurst(player.x, player.y, 'var(--orb)', 10);
+            }
+        }
+
+        // Mines
+        if(state.mode === 'playing') { // AI is immune to mines for demo stability
+            for (let mine of mines) {
+                let dist = Math.hypot(mine.x - player.x, mine.y - player.y);
+                if (dist < CFG.player.radius + CFG.mine.radius) {
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+        // 5. Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy;
+            p.life -= 0.05;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // Mines visual pulse
+        mines.forEach(m => {
+            m.angle += 0.05;
+            m.pulse = (Math.sin(m.angle) + 1) / 2;
+        });
+    }
+
+    function wallHit(x, y) {
+        createBurst(x, y, '#ffffff', 5);
+        // Screen shake effect could go here
+    }
+
+    function createBurst(x, y, color, count) {
+        for(let i=0; i<count; i++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = Math.random() * 4 + 2;
+            particles.push({
+                x: x, y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 1, color: color
+            });
+        }
+    }
+
+    // --- RENDER ---
+    function draw() {
+        ctx.fillStyle = 'var(--bg)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Stars
+        state.starfield.forEach(s => {
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // Orbs
+        orbs.forEach(o => {
+            ctx.fillStyle = 'var(--orb)';
+            ctx.shadowBlur = 15; ctx.shadowColor = 'var(--orb)';
+            ctx.beginPath(); ctx.arc(o.x, o.y, CFG.orb.radius, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        // Mines
+        mines.forEach(m => {
+            let r = CFG.mine.radius + (m.pulse * 3);
+            ctx.fillStyle = 'var(--mine)';
+            ctx.shadowBlur = 15; ctx.shadowColor = 'var(--mine)';
+            ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        // Leash & Pivot
+        if (state.isHolding) {
+            ctx.strokeStyle = 'var(--leash)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10; ctx.shadowColor = 'var(--leash)';
+            
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(state.pivot.x, state.pivot.y);
+            ctx.stroke();
+
+            // Draw Pivot Target
+            ctx.beginPath();
+            ctx.arc(state.pivot.x, state.pivot.y, 15, 0, Math.PI * 2);
+            ctx.stroke(); // Ring
+            ctx.beginPath();
+            ctx.arc(state.pivot.x, state.pivot.y, 4, 0, Math.PI * 2);
+            ctx.fill(); // Dot
+            
+            ctx.shadowBlur = 0;
+        }
+
+        // Trail
+        if (player.trail.length > 0) {
+            ctx.strokeStyle = 'var(--player)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(player.trail[0].x, player.trail[0].y);
+            for(let i=1; i<player.trail.length; i++) ctx.lineTo(player.trail[i].x, player.trail[i].y);
+            ctx.stroke();
+        }
+
+        // Player
+        ctx.fillStyle = 'var(--player)';
+        ctx.shadowBlur = 15; ctx.shadowColor = 'var(--player)';
+        ctx.beginPath(); ctx.arc(player.x, player.y, CFG.player.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Particles
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+    }
+
+    function loop() {
+        if (state.mode === 'gameover') return;
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    function gameOver() {
+        state.mode = 'gameover';
+        if (state.score > state.highScore) {
+            state.highScore = state.score;
+            localStorage.setItem('voidWeaverHigh', state.highScore);
+        }
+        ui.finalScore.innerText = state.score;
+        ui.gameOverMenu.classList.add('active');
+        createBurst(player.x, player.y, 'var(--mine)', 40);
+        draw();
+    }
+
+    // Start
+    resize();
+    createStarfield();
+    initGame(true); // Start in Demo Mode
+
+</script>
+</body>
+</html>

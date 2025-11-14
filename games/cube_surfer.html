@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cube Surfer 3D</title>
+    <!-- Import Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF69B4; /* Hot Pink */
+            --secondary: #4ecdc4; /* Teal */
+            --accent: #ffe66d; /* Yellow */
+            --dark: #292f36;
+            --glass: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+
+        body { 
+            margin: 0; overflow: hidden; background: #87CEEB; 
+            font-family: 'Poppins', sans-serif; user-select: none; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* --- UI LAYOUT --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column;
+            z-index: 10;
+        }
+
+        /* --- HUD (Heads Up Display) --- */
+        .hud {
+            display: flex; justify-content: space-between; 
+            padding: 20px; width: 100%; box-sizing: border-box;
+            pointer-events: auto;
+        }
+
+        .pill {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .pill span { color: var(--accent); }
+
+        /* --- MENUS (Glassmorphism) --- */
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(41, 47, 54, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20;
+            transition: opacity 0.3s ease, visibility 0.3s;
+        }
+
+        .menu-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px; width: 90%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative glow */
+        .card::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 3.5rem; margin: 0 0 10px 0; 
+            color: white; font-weight: 900; letter-spacing: -1px;
+            text-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            line-height: 1;
+        }
+        
+        h1 span { color: var(--primary); }
+
+        .sub-text { color: rgba(255,255,255,0.8); font-size: 1.1rem; margin-bottom: 30px; }
+        .high-score-label { 
+            font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; 
+            color: var(--accent); margin-bottom: 5px; display: block;
+        }
+
+        /* --- BUTTONS --- */
+        .btn-3d {
+            background: linear-gradient(to bottom, #ff8cc6, #ff69b4);
+            color: white; border: none;
+            padding: 18px 50px; font-size: 1.4rem; font-weight: 900;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 8px 0 #c71585, 0 15px 20px rgba(0,0,0,0.2);
+            transition: all 0.1s;
+            text-transform: uppercase; letter-spacing: 1px;
+            font-family: 'Poppins', sans-serif;
+            position: relative; top: 0;
+            width: 100%;
+        }
+
+        .btn-3d:active { top: 8px; box-shadow: 0 0 0 #c71585, 0 0 5px rgba(0,0,0,0.2); }
+        .btn-3d.secondary {
+            background: linear-gradient(to bottom, #4ecdc4, #2ab7ca);
+            box-shadow: 0 8px 0 #1d8a99, 0 15px 20px rgba(0,0,0,0.2);
+        }
+        .btn-3d.secondary:active { top: 8px; box-shadow: 0 0 0 #1d8a99; }
+
+        /* --- TUTORIAL --- */
+        .tutorial-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            margin-bottom: 30px; text-align: left;
+        }
+        .tut-item {
+            background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px;
+            display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: white;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .icon { font-size: 1.5rem; }
+
+        /* --- NOTIFICATIONS --- */
+        #speed-notify {
+            position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3.5rem; color: var(--accent); font-weight: 900; font-style: italic;
+            text-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+            opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; z-index: 15;
+        }
+        #speed-notify.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+
+    </style>
+    <!-- Load Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+</head>
+<body>
+
+    <!-- HUD -->
+    <div id="ui-layer">
+        <div class="hud">
+            <div class="pill">⭐ <span id="scoreVal">0</span></div>
+            <div class="pill">🏆 <span id="hudHighScore">0</span></div>
+            <div class="pill">🏃 <span id="metersVal">0</span>m</div>
+        </div>
+    </div>
+
+    <!-- SPEED NOTIFICATION -->
+    <div id="speed-notify">SPEED UP!</div>
+
+    <!-- MAIN MENU -->
+    <div id="startMenu" class="menu-overlay">
+        <div class="card">
+            <span class="high-score-label">Best Run: <span id="menuHighScore">0</span> Stars</span>
+            <h1>CUBE<br><span>SURFER</span></h1>
+            <p class="sub-text">Dodge. Jump. Survive.</p>
+            <button class="btn-3d" id="playBtn">PLAY</button>
+        </div>
+    </div>
+
+    <!-- TUTORIAL OVERLAY (Only shows first time) -->
+    <div id="tutorialMenu" class="menu-overlay hidden">
+        <div class="card">
+            <h1>HOW TO PLAY</h1>
+            <div class="tutorial-grid">
+                <div class="tut-item"><span class="icon">↔️</span> Swipe / Arrow Keys to Move</div>
+                <div class="tut-item"><span class="icon">⬆️</span> Swipe Up / Space to Jump</div>
+                <div class="tut-item"><span class="icon">⬇️</span> Swipe Down to Roll</div>
+                <div class="tut-item"><span class="icon">⭐</span> Collect Stars</div>
+            </div>
+            <button class="btn-3d secondary" id="tutOkBtn">GOT IT!</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="gameOverMenu" class="menu-overlay hidden">
+        <div class="card">
+            <h1>GAME<br><span style="color:#ff4757">OVER</span></h1>
+            <p class="sub-text">Distance: <b id="finalMeters">0</b>m</p>
+            
+            <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:15px; margin-bottom:25px;">
+                <div style="font-size:0.9rem; color:#ccc;">STARS COLLECTED</div>
+                <div style="font-size:2.5rem; font-weight:900; color:var(--accent);" id="finalScore">0</div>
+            </div>
+
+            <button class="btn-3d" id="retryBtn">TRY AGAIN</button>
+        </div>
+    </div>
+
+<script>
+    // --- CONFIG ---
+    let CONFIG = {
+        laneWidth: 3, 
+        baseSpeed: 0.4,
+        speed: 0.4,   
+        gravity: 0.02,
+        jumpForce: 0.45,
+        spawnRate: 60, 
+        colors: {
+            sky: 0x87CEEB,
+            ground: 0x98FB98, 
+            cube: 0xFF69B4,   
+            obstacle: 0xFF4500, 
+            star: 0xFFD700,
+            barrier: 0xFFCC00, // Yellow
+            arch: 0xCC0000,    // Red
+            archMetal: 0x555555
+        }
+    };
+
+    // --- STATE ---
+    let state = {
+        running: false,
+        score: 0,
+        highScore: parseInt(localStorage.getItem('cubeSurferHigh') || 0),
+        meters: 0,
+        nextSpeedMilestone: 100,
+        lane: 0, 
+        playerY: 0,
+        playerVy: 0,
+        isJumping: false,
+        isRolling: false,
+        rollTimer: 0,
+        targetX: 0,
+        frameCount: 0
+    };
+
+    // --- UI MANAGEMENT ---
+    const ui = {
+        score: document.getElementById('scoreVal'),
+        meters: document.getElementById('metersVal'),
+        hudHighScore: document.getElementById('hudHighScore'),
+        menuHighScore: document.getElementById('menuHighScore'),
+        startMenu: document.getElementById('startMenu'),
+        tutorialMenu: document.getElementById('tutorialMenu'),
+        gameOverMenu: document.getElementById('gameOverMenu'),
+        finalScore: document.getElementById('finalScore'),
+        finalMeters: document.getElementById('finalMeters'),
+        speedNotify: document.getElementById('speed-notify')
+    };
+
+    // Initialize UI
+    function initUI() {
+        ui.hudHighScore.innerText = state.highScore;
+        ui.menuHighScore.innerText = state.highScore;
+    }
+    initUI();
+
+    // --- THREE.JS SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(CONFIG.colors.sky);
+    scene.fog = new THREE.Fog(CONFIG.colors.sky, 10, 50);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 5, 8);
+    camera.lookAt(0, 0, -5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
+
+    // --- OBJECTS ---
+
+    // Ground 
+    const groundGeo = new THREE.PlaneGeometry(100, 200);
+    const groundMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.ground });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.z = -50;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Lane Markers
+    const lineGeo = new THREE.PlaneGeometry(0.2, 200);
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.4, transparent: true });
+    const line1 = new THREE.Mesh(lineGeo, lineMat);
+    line1.rotation.x = -Math.PI / 2;
+    line1.position.set(-CONFIG.laneWidth/2 - 1.5, 0.01, -50);
+    scene.add(line1);
+    const line2 = new THREE.Mesh(lineGeo, lineMat);
+    line2.rotation.x = -Math.PI / 2;
+    line2.position.set(CONFIG.laneWidth/2 + 1.5, 0.01, -50);
+    scene.add(line2);
+
+    // Player Group
+    const playerGroup = new THREE.Group();
+    scene.add(playerGroup);
+
+    // Cube Body (Pink)
+    const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+    const cubeMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.cube, roughness: 0.3 });
+    const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+    cubeMesh.position.y = 0.5;
+    cubeMesh.castShadow = true;
+    playerGroup.add(cubeMesh);
+
+    // Cute Eyes
+    const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.1);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    leftEye.position.set(-0.25, 0.6, 0.46);
+    playerGroup.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    rightEye.position.set(0.25, 0.6, 0.46);
+    playerGroup.add(rightEye);
+
+    // Managers
+    let obstacles = [];
+    let stars = [];
+    let particles = [];
+
+    // --- GAME LOGIC ---
+
+    function requestGameStart() {
+        // Check if tutorial seen
+        if (!localStorage.getItem('cubeSurferTutorialSeen')) {
+            ui.startMenu.classList.add('hidden');
+            ui.tutorialMenu.classList.remove('hidden');
+        } else {
+            startGame();
+        }
+    }
+
+    function finishTutorial() {
+        localStorage.setItem('cubeSurferTutorialSeen', 'true');
+        ui.tutorialMenu.classList.add('hidden');
+        startGame();
+    }
+
+    function startGame() {
+        // Reset Logic
+        state.running = true;
+        state.score = 0;
+        state.meters = 0;
+        state.nextSpeedMilestone = 100;
+        CONFIG.speed = CONFIG.baseSpeed;
+        
+        state.lane = 0;
+        state.playerY = 0;
+        state.playerVy = 0;
+        state.targetX = 0;
+        state.frameCount = 0;
+        state.isJumping = false;
+        state.isRolling = false;
+
+        // Visual Reset
+        obstacles.forEach(o => scene.remove(o.mesh));
+        stars.forEach(s => scene.remove(s.mesh));
+        obstacles = [];
+        stars = [];
+        cubeMesh.scale.set(1,1,1);
+        cubeMesh.position.y = 0.5;
+        leftEye.position.y = 0.6;
+        rightEye.position.y = 0.6;
+        playerGroup.position.set(0,0,0);
+
+        // UI Reset
+        ui.score.innerText = "0";
+        ui.meters.innerText = "0";
+        ui.startMenu.classList.add('hidden');
+        ui.gameOverMenu.classList.add('hidden');
+        ui.tutorialMenu.classList.add('hidden');
+
+        animate();
+    }
+
+    function gameOver() {
+        state.running = false;
+        
+        // High Score Logic
+        if (state.score > state.highScore) {
+            state.highScore = state.score;
+            localStorage.setItem('cubeSurferHigh', state.highScore);
+            ui.hudHighScore.innerText = state.highScore;
+            ui.menuHighScore.innerText = state.highScore;
+        }
+
+        ui.finalScore.innerText = state.score;
+        ui.finalMeters.innerText = Math.floor(state.meters);
+        ui.gameOverMenu.classList.remove('hidden');
+    }
+
+    function triggerSpeedUp() {
+        CONFIG.speed += 0.05;
+        ui.speedNotify.classList.add('show');
+        setTimeout(() => { ui.speedNotify.classList.remove('show'); }, 2000);
+    }
+
+    // --- INPUTS ---
+    function handleInput(action) {
+        if (!state.running) return;
+
+        if (action === 'left' && state.lane > -1) state.lane--;
+        else if (action === 'right' && state.lane < 1) state.lane++;
+        else if (action === 'jump' && !state.isJumping && !state.isRolling) {
+            state.isJumping = true;
+            state.playerVy = CONFIG.jumpForce;
+            createDust(playerGroup.position.x);
+        } 
+        else if (action === 'roll' && !state.isJumping && !state.isRolling) {
+            state.isRolling = true;
+            state.rollTimer = 40; 
+            // Squish
+            cubeMesh.scale.set(1.2, 0.5, 1.2);
+            cubeMesh.position.y = 0.25;
+            leftEye.position.y = 0.3; 
+            rightEye.position.y = 0.3;
+            createDust(playerGroup.position.x);
+        }
+        state.targetX = state.lane * CONFIG.laneWidth;
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a') handleInput('left');
+        if (e.key === 'ArrowRight' || e.key === 'd') handleInput('right');
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') handleInput('jump');
+        if (e.key === 'ArrowDown' || e.key === 's') handleInput('roll');
+    });
+
+    // Touch Swipe
+    let tsX = 0, tsY = 0;
+    window.addEventListener('touchstart', e => { tsX = e.changedTouches[0].screenX; tsY = e.changedTouches[0].screenY; }, {passive:false});
+    window.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].screenX - tsX;
+        const dy = e.changedTouches[0].screenY - tsY;
+        if (Math.abs(dx) > Math.abs(dy)) { 
+            if (Math.abs(dx) > 30) handleInput(dx > 0 ? 'right' : 'left'); 
+        } else { 
+            if (Math.abs(dy) > 30) handleInput(dy > 0 ? 'roll' : 'jump'); 
+        }
+    }, {passive:false});
+
+    // Button Listeners
+    document.getElementById('playBtn').addEventListener('click', requestGameStart);
+    document.getElementById('tutOkBtn').addEventListener('click', finishTutorial);
+    document.getElementById('retryBtn').addEventListener('click', startGame);
+
+
+    // --- SPAWNING ---
+    function spawnObstacle() {
+        const lane = Math.floor(Math.random() * 3) - 1; 
+        const x = lane * CONFIG.laneWidth;
+        const z = -60; 
+
+        const type = Math.random();
+        let mesh, colliderType;
+
+        if (type < 0.33) {
+            // SOLID TOWER (Dodge)
+            const geo = new THREE.BoxGeometry(2.5, 5, 1);
+            const mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.obstacle });
+            mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, 2.5, z);
+            colliderType = 'solid';
+        } else if (type < 0.66) {
+            // BARRIER (Jump)
+            const geo = new THREE.BoxGeometry(2.5, 0.6, 0.5);
+            const mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.barrier });
+            mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, 0.3, z);
+            colliderType = 'low';
+            
+            // Add caution stripes
+            const stripeGeo = new THREE.BoxGeometry(0.5, 0.62, 0.52);
+            const stripeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const s1 = new THREE.Mesh(stripeGeo, stripeMat); s1.position.x = -0.8;
+            const s2 = new THREE.Mesh(stripeGeo, stripeMat); s2.position.x = 0.8;
+            mesh.add(s1, s2);
+
+        } else {
+            // ARCH (Roll)
+            const group = new THREE.Group();
+            const legMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.archMetal });
+            const topMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.arch });
+
+            const legGeo = new THREE.BoxGeometry(0.3, 4, 0.3);
+            const leftLeg = new THREE.Mesh(legGeo, legMat); leftLeg.position.set(-1.1, 2, 0);
+            const rightLeg = new THREE.Mesh(legGeo, legMat); rightLeg.position.set(1.1, 2, 0);
+            
+            const topGeo = new THREE.BoxGeometry(2.8, 1.2, 0.8);
+            const top = new THREE.Mesh(topGeo, topMat);
+            top.position.set(0, 3.4, 0); // Bottom edge at ~2.8 (Safe head clearance)
+            // Wait, visual logic:
+            // Player Standing = 1.0 (Top).
+            // Player Rolling = 0.5 (Top).
+            // This obstacle needs to hit Standing player but miss Rolling.
+            // So bottom of blockage needs to be around 0.6 to 0.9.
+            
+            // Let's lower the block significantly
+            top.scale.y = 1.5; 
+            top.position.y = 1.75; 
+            // Box height 1.2 * 1.5 = 1.8. Center 1.75. Bottom = 1.75 - 0.9 = 0.85.
+            // Perfect. Hits standing (1.0), misses rolling (0.5).
+            
+            group.add(leftLeg, rightLeg, top);
+            group.position.set(x, 0, z);
+            mesh = group; 
+            colliderType = 'high';
+        }
+
+        mesh.castShadow = true;
+        scene.add(mesh);
+        obstacles.push({ mesh, type: colliderType });
+
+        // Spawn Star
+        let availableLanes = [-1, 0, 1].filter(l => l !== lane);
+        let starLane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+        spawnStar(starLane * CONFIG.laneWidth, z);
+    }
+
+    function spawnStar(x, z) {
+        const geo = new THREE.OctahedronGeometry(0.4, 0);
+        const mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.star, emissive: 0xaa8800, emissiveIntensity: 0.5 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, 0.5, z);
+        scene.add(mesh);
+        stars.push({ mesh, rot: Math.random() });
+    }
+
+    function createDust(x) {
+        for (let i = 0; i < 6; i++) {
+            const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x + (Math.random()-0.5)*0.5, 0.1, 0);
+            scene.add(mesh);
+            particles.push({ mesh, vy: Math.random()*0.05 + 0.02, life: 1.0 });
+        }
+    }
+
+    // --- MAIN LOOP ---
+    function animate() {
+        if (!state.running) return;
+        requestAnimationFrame(animate);
+
+        state.frameCount++;
+        state.meters += CONFIG.speed / 5; 
+        ui.meters.innerText = Math.floor(state.meters);
+
+        if (state.meters >= state.nextSpeedMilestone) {
+            triggerSpeedUp();
+            state.nextSpeedMilestone += 100;
+        }
+
+        // Player Animation
+        playerGroup.position.x += (state.targetX - playerGroup.position.x) * 0.15;
+        playerGroup.rotation.z = (playerGroup.position.x - state.targetX) * -0.1; // Lean
+        
+        // Physics
+        if (state.isJumping) {
+            state.playerY += state.playerVy;
+            state.playerVy -= CONFIG.gravity;
+            if (state.playerY <= 0) {
+                state.playerY = 0;
+                state.isJumping = false;
+                createDust(playerGroup.position.x);
+            }
+        } else if (state.isRolling) {
+            state.rollTimer--;
+            if (state.rollTimer <= 0) {
+                state.isRolling = false;
+                cubeMesh.scale.set(1, 1, 1);
+                cubeMesh.position.y = 0.5;
+                leftEye.position.y = 0.6; rightEye.position.y = 0.6;
+            }
+        }
+
+        if (!state.isRolling) playerGroup.position.y = state.playerY;
+        else playerGroup.position.y = 0;
+
+        // Spawning
+        let adjustedSpawnRate = Math.max(30, Math.floor(CONFIG.spawnRate - (CONFIG.speed * 20)));
+        if (state.frameCount % adjustedSpawnRate === 0) spawnObstacle();
+
+        // Obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let o = obstacles[i];
+            o.mesh.position.z += CONFIG.speed;
+
+            if (o.mesh.position.z > -1 && o.mesh.position.z < 1) {
+                // X Collision
+                if (Math.abs(o.mesh.position.x - playerGroup.position.x) < 0.8) {
+                    let hit = false;
+                    if (o.type === 'solid') hit = true;
+                    else if (o.type === 'low' && playerGroup.position.y < 0.7) hit = true;
+                    else if (o.type === 'high' && !state.isRolling) hit = true;
+
+                    if (hit) { gameOver(); return; }
+                }
+            }
+            if (o.mesh.position.z > 10) { scene.remove(o.mesh); obstacles.splice(i, 1); }
+        }
+
+        // Stars
+        for (let i = stars.length - 1; i >= 0; i--) {
+            let s = stars[i];
+            s.mesh.position.z += CONFIG.speed;
+            s.mesh.rotation.y += 0.1;
+            s.mesh.position.y = 0.5 + Math.sin(state.frameCount * 0.1 + s.rot) * 0.2; // Float
+
+            if (s.mesh.position.z > -1 && s.mesh.position.z < 1) {
+                if (Math.abs(s.mesh.position.x - playerGroup.position.x) < 0.8) {
+                    state.score++;
+                    ui.score.innerText = state.score;
+                    scene.remove(s.mesh);
+                    stars.splice(i, 1);
+                    continue;
+                }
+            }
+            if (s.mesh.position.z > 10) { scene.remove(s.mesh); stars.splice(i, 1); }
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.mesh.position.y += p.vy;
+            p.mesh.position.z += CONFIG.speed;
+            p.life -= 0.04;
+            p.mesh.scale.setScalar(p.life);
+            p.mesh.material.opacity = p.life;
+            if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+</script>
+</body>
+</html>

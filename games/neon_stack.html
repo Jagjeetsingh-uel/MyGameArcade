@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Stack - High Rise Construction</title>
+    <title>Neon Stack - High Rise</title>
     <style>
         body, html {
             margin: 0;
@@ -13,7 +13,7 @@
             overflow: hidden;
             background-color: #111;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none; /* Prevent double-tap zoom */
+            touch-action: none;
         }
 
         #game-container {
@@ -35,21 +35,43 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Let clicks pass through to canvas */
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            pointer-events: none;
             padding: 20px;
             box-sizing: border-box;
         }
 
         #score-display {
             color: white;
-            font-size: 40px;
+            font-size: 60px;
             font-weight: bold;
             text-align: center;
-            text-shadow: 0 0 10px rgba(255,255,255,0.5);
-            opacity: 0.8;
+            text-shadow: 0 0 15px rgba(255,255,255,0.3);
+            opacity: 0.9;
+            margin-top: 40px;
+        }
+        
+        #high-score-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #ccc;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: right;
+            opacity: 0.7;
+        }
+
+        #pause-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            opacity: 0.7;
+            user-select: none;
         }
 
         #start-screen, #game-over-screen {
@@ -58,32 +80,29 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            pointer-events: auto; /* Re-enable clicks for buttons */
-            background: rgba(0, 0, 0, 0.85);
-            padding: 40px;
+            pointer-events: auto;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 40px 60px;
             border-radius: 20px;
-            border: 1px solid #333;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
+            backdrop-filter: blur(10px);
         }
 
         h1 {
-            color: #fff;
             margin: 0;
             font-size: 32px;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            letter-spacing: 3px;
+            background: linear-gradient(90deg, #ff00cc, #3333ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        p {
-            color: #aaa;
-            margin: 0;
-        }
+        p { color: #aaa; margin: 0; font-size: 16px; }
 
         .btn {
             background: white;
@@ -96,30 +115,33 @@
             cursor: pointer;
             transition: transform 0.1s;
             text-transform: uppercase;
+            margin-top: 10px;
         }
 
-        .btn:active {
-            transform: scale(0.95);
-        }
+        .btn:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
 
-        .hidden {
-            display: none !important;
+        .score-panel {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0;
         }
+        .score-box { text-align: center; }
+        .score-box p { font-size: 14px; }
+        .score-box div { font-size: 32px; color: white; }
 
-        /* Combo Text Effect */
-        .combo-text {
-            position: absolute;
-            color: #fff;
+        #new-high-score-text {
+            font-size: 18px;
+            color: #ffff00;
             font-weight: bold;
-            font-size: 24px;
-            animation: floatUp 1s forwards;
-            pointer-events: none;
+            animation: flash 1s infinite;
         }
 
-        @keyframes floatUp {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
+
     </style>
 </head>
 <body>
@@ -128,30 +150,42 @@
     <canvas id="gameCanvas"></canvas>
     
     <div id="ui-layer">
+        <div id="pause-btn">||</div>
+        <div id="high-score-display">HI: 0</div>
         <div id="score-display">0</div>
     </div>
 
     <div id="start-screen">
         <h1>Neon Stack</h1>
-        <p>Tap to place the block.<br>Don't miss.</p>
-        <button class="btn" id="start-btn">Play Now</button>
+        <p>Tap to place the block</p>
+        <button class="btn" id="start-btn">Play</button>
     </div>
 
     <div id="game-over-screen" class="hidden">
         <h1>Game Over</h1>
-        <p>Final Score</p>
-        <div id="final-score" style="font-size: 48px; color: white; margin: 10px 0;">0</div>
-        <button class="btn" id="restart-btn">Try Again</button>
+        <div id="new-high-score-text" class="hidden">NEW HIGH SCORE!</div>
+        <div class="score-panel">
+            <div class="score-box">
+                <p>Score</p>
+                <div id="final-score">0</div>
+            </div>
+            <div class="score-box">
+                <p>High Score</p>
+                <div id="final-high-score">0</div>
+            </div>
+        </div>
+        <button class="btn" id="restart-btn">Retry</button>
     </div>
 </div>
 
 <script>
     // --- CONFIGURATION ---
     const CONFIG = {
-        baseSpeed: 3,
-        speedIncrement: 0.1,
-        blockHeight: 30,
-        initialWidth: 200,
+        baseSpeed: 4,
+        speedIncrement: 0.15,
+        blockHeight: 35,
+        initialWidth: 220,
+        perfectThreshold: 5, // Pixel threshold for a "perfect" hit
         colors: [
             '#ff0055', '#ff3333', '#ff6600', '#ff9900', '#ffff00', 
             '#ccff00', '#66ff00', '#00ff66', '#00ffcc', '#00ccff', 
@@ -163,117 +197,161 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
-    // UI Elements
     const startScreen = document.getElementById('start-screen');
     const gameOverScreen = document.getElementById('game-over-screen');
     const scoreDisplay = document.getElementById('score-display');
     const finalScoreDisplay = document.getElementById('final-score');
-    const uiLayer = document.getElementById('ui-layer');
+    const highScoreDisplay = document.getElementById('high-score-display');
+    const finalHighScoreDisplay = document.getElementById('final-high-score');
+    const newHighScoreText = document.getElementById('new-high-score-text');
+    const pauseBtn = document.getElementById('pause-btn');
+    const restartBtn = document.getElementById('restart-btn'); // <-- FIX: Added this line
 
     let state = {
         isPlaying: false,
+        isPaused: false,
         score: 0,
+        highScore: 0,
         blocks: [],
         currentBlock: null,
-        direction: 1, // 1 = right, -1 = left
+        direction: 1,
         speed: CONFIG.baseSpeed,
         cameraY: 0,
-        debris: [] // Falling pieces
+        debris: [],
+        effects: [] // For floating text and particles
     };
 
-    // Resize handling
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        // If playing, recenter the camera
-        if(state.isPlaying) {
-            state.cameraY = canvas.height - 100 - (state.blocks.length * CONFIG.blockHeight);
-        }
     }
     window.addEventListener('resize', resize);
     resize();
 
     // --- CLASSES ---
-
     class Block {
         constructor(x, y, width, color) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = CONFIG.blockHeight;
-            this.color = color;
+            this.x = x; this.y = y; this.width = width;
+            this.height = CONFIG.blockHeight; this.color = color;
         }
-
         draw() {
             ctx.fillStyle = this.color;
-            // Draw main block
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            
-            // Draw simple "3D" top highlight
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
             ctx.fillRect(this.x, this.y, this.width, 4);
-            
-            // Draw simple "3D" side shadow
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.fillRect(this.x + this.width - 4, this.y, 4, this.height);
+            ctx.fillRect(this.x + this.width - 6, this.y, 6, this.height);
         }
     }
 
     class Debris {
         constructor(x, y, width, height, color) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-            this.color = color;
-            this.vy = 0; // Vertical velocity
-            this.vx = (Math.random() - 0.5) * 2; // Slight horizontal spin
-            this.alpha = 1;
+            this.x = x; this.y = y; this.width = width; this.height = height; this.color = color;
+            this.vy = 0; this.vx = (Math.random() - 0.5) * 5; this.alpha = 1;
+            this.rot = 0; this.rotSpeed = (Math.random() - 0.5) * 0.2;
         }
-
         update() {
-            this.vy += 0.5; // Gravity
-            this.y += this.vy;
-            this.x += this.vx;
-            this.alpha -= 0.02; // Fade out
+            this.vy += 0.8; this.y += this.vy; this.x += this.vx;
+            this.alpha -= 0.02; this.rot += this.rotSpeed;
+        }
+        draw() {
+            if(this.alpha <= 0) return;
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.translate(this.x + this.width/2, this.y + this.height/2);
+            ctx.rotate(this.rot);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+            ctx.restore();
+        }
+    }
+    
+    // New class for text and particle effects
+    class Effect {
+        constructor(x, y, text, color, type = 'text') {
+            this.x = x; this.y = y; this.text = text; this.color = color; this.type = type;
+            this.alpha = 1; this.vy = -2; // Move up
+            this.duration = 60; // 60 frames (1 second)
+            
+            // Particle specific
+            if(this.type === 'particle') {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() * -3) - 1; // Always move up
+                this.size = Math.random() * 5 + 2;
+                this.color = color;
+                this.alpha = 1;
+            }
+        }
+        
+        update() {
+            if(this.type === 'text') {
+                this.y += this.vy;
+                this.alpha -= 1 / this.duration;
+            } else {
+                this.vy += 0.1; // Gravity on particles
+                this.y += this.vy;
+                this.x += this.vx;
+                this.alpha -= 0.03;
+            }
         }
 
         draw() {
-            ctx.globalAlpha = Math.max(0, this.alpha);
-            ctx.fillStyle = this.color;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.globalAlpha = 1;
+            if(this.alpha <= 0) return;
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            if(this.type === 'text') {
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+            } else {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+            ctx.restore();
+        }
+    }
+    
+    function createParticleBurst(x, y, color) {
+        for(let i=0; i < 15; i++) {
+            state.effects.push(new Effect(x, y, null, color, 'particle'));
         }
     }
 
     // --- GAME LOGIC ---
-
     function initGame() {
         state.score = 0;
         state.speed = CONFIG.baseSpeed;
         state.direction = 1;
         state.blocks = [];
         state.debris = [];
+        state.effects = [];
         state.isPlaying = true;
+        state.isPaused = false;
+        state.cameraY = 0;
         scoreDisplay.textContent = "0";
+        pauseBtn.textContent = "||";
+        newHighScoreText.classList.add('hidden');
+        
+        // Load High Score
+        state.highScore = parseInt(sessionStorage.getItem('stackHighScore') || '0');
+        highScoreDisplay.textContent = `HI: ${state.highScore}`;
 
-        // Base block (immovable foundation)
+        // Base block
         const baseBlock = new Block(
             (canvas.width / 2) - (CONFIG.initialWidth / 2),
-            canvas.height - 100,
+            canvas.height - 150,
             CONFIG.initialWidth,
             CONFIG.colors[0]
         );
         state.blocks.push(baseBlock);
 
-        // Camera setup
-        state.cameraY = 0;
-
         spawnNextBlock();
         
         startScreen.classList.add('hidden');
         gameOverScreen.classList.add('hidden');
-        
         requestAnimationFrame(loop);
     }
 
@@ -281,15 +359,13 @@
         const prevBlock = state.blocks[state.blocks.length - 1];
         const color = CONFIG.colors[state.blocks.length % CONFIG.colors.length];
         
-        // Start either from far left or far right
-        let startX = state.direction === 1 ? -prevBlock.width : canvas.width;
+        let startX = state.direction === 1 ? 0 - prevBlock.width : canvas.width;
         
         state.currentBlock = {
             x: startX,
             y: prevBlock.y - CONFIG.blockHeight,
             width: prevBlock.width,
-            color: color,
-            targetY: prevBlock.y - CONFIG.blockHeight
+            color: color
         };
     }
 
@@ -301,133 +377,182 @@
 
         const distance = current.x - prev.x;
         const overlap = prev.width - Math.abs(distance);
+        
+        const isPerfect = overlap > 0 && Math.abs(distance) <= CONFIG.perfectThreshold;
 
-        if (overlap > 0) {
-            // Hit!
-            state.score++;
-            scoreDisplay.textContent = state.score;
+        if (isPerfect) {
+            // Perfect Hit
+            state.score += 5; // +5 bonus
             
-            // Speed up slightly
+            // Add "Perfect" text effect
+            state.effects.push(new Effect(current.x + current.width/2, current.y, "PERFECT! +5", "#ffff00"));
+            
+            // Don't shrink the block
+            let newWidth = prev.width;
+            let newX = prev.x;
+
+            const newBlock = new Block(newX, current.y, newWidth, current.color);
+            state.blocks.push(newBlock);
+            createParticleBurst(newX + newWidth/2, newBlock.y, newBlock.color); // Double burst
+
+        } else if (overlap > 0) {
+            // Normal Hit
+            state.score++;
             state.speed += CONFIG.speedIncrement;
 
             let newWidth = overlap;
             let newX = prev.x + (distance > 0 ? distance : 0);
 
-            // Create the Debris (falling part)
+            // Create Debris
             let debrisX = distance > 0 ? (current.x + current.width - Math.abs(distance)) : current.x;
             let debrisWidth = Math.abs(distance);
             state.debris.push(new Debris(debrisX, current.y, debrisWidth, CONFIG.blockHeight, current.color));
 
-            // Add the new permanent block
             const newBlock = new Block(newX, current.y, newWidth, current.color);
             state.blocks.push(newBlock);
-
-            // Flip direction for next block
-            state.direction *= -1;
-            spawnNextBlock();
-
-            // Flash effect for perfect hits (optional logic could go here)
+            createParticleBurst(newX + newWidth/2, newBlock.y, newBlock.color); // Single burst
+            
         } else {
-            // Miss - Game Over
+            // Miss
             gameOver();
+            return; // Stop function
         }
+        
+        // Code for both perfect and normal hits
+        scoreDisplay.textContent = state.score;
+        state.direction *= -1;
+        spawnNextBlock();
     }
 
     function gameOver() {
         state.isPlaying = false;
         
-        // Show falling debris for the block that missed
+        // Save high score if beaten
+        if (state.score > state.highScore) {
+            state.highScore = state.score;
+            sessionStorage.setItem('stackHighScore', state.highScore);
+            newHighScoreText.classList.remove('hidden');
+        }
+        
         if(state.currentBlock) {
             state.debris.push(new Debris(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, CONFIG.blockHeight, state.currentBlock.color));
         }
-
+        
         setTimeout(() => {
             finalScoreDisplay.textContent = state.score;
+            finalHighScoreDisplay.textContent = state.highScore;
             gameOverScreen.classList.remove('hidden');
         }, 500);
     }
+    
+    function togglePause() {
+        if (!state.isPlaying) return;
+        
+        state.isPaused = !state.isPaused;
+        if (state.isPaused) {
+            pauseBtn.textContent = "▶"; // Play icon
+            // We just stop the loop
+        } else {
+            pauseBtn.textContent = "||"; // Pause icon
+            requestAnimationFrame(loop); // Restart the loop
+        }
+    }
 
     function loop() {
-        if (!state.isPlaying && state.debris.length === 0) return;
+        if ((!state.isPlaying && state.debris.length === 0) || state.isPaused) {
+            return;
+        }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Update Logic
+        // --- Update Logic ---
         if (state.isPlaying && state.currentBlock) {
             state.currentBlock.x += state.speed * state.direction;
-
-            // Bounce off walls (optional, but usually in stack games it just flies off)
-            // We'll check if it goes too far just to reset direction if user falls asleep? 
-            // Nah, classic stack logic: it moves linearly. We just need to ensure it spawns far enough back.
+            
+            // Bounce logic
+            if (state.currentBlock.x < 0) {
+                state.currentBlock.x = 0;
+                state.direction = 1;
+            } else if (state.currentBlock.x + state.currentBlock.width > canvas.width) {
+                state.currentBlock.x = canvas.width - state.currentBlock.width;
+                state.direction = -1;
+            }
         }
 
-        // Camera Logic (smooth scroll up)
-        // We want the top of the stack to be at roughly 60% of the screen height
-        const targetCamY = (state.blocks.length * CONFIG.blockHeight) - (canvas.height * 0.4);
-        // Only move camera up, never down (unless reset)
-        if(targetCamY > -state.cameraY) {
-           state.cameraY = -targetCamY; 
+        // Camera Logic
+        const currentTopY = state.blocks[state.blocks.length-1].y;
+        const desiredY = canvas.height * 0.5; 
+        if(currentTopY < desiredY) {
+            const targetOffset = desiredY - currentTopY;
+            state.cameraY += (targetOffset - state.cameraY) * 0.1;
         }
-        
-        // Smooth lerp for camera could be added here, but direct mapping is snappier for this game type
+
+        // --- Draw Logic ---
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0,0,canvas.width, canvas.height);
 
         ctx.save();
-        ctx.translate(0, state.cameraY); // Apply camera offset
+        ctx.translate(0, state.cameraY); 
 
-        // Draw Blocks
+        // Draw blocks
         state.blocks.forEach(block => block.draw());
 
-        // Draw Current Moving Block
+        // Draw current moving block
         if (state.isPlaying && state.currentBlock) {
-            ctx.fillStyle = state.currentBlock.color;
-            ctx.fillRect(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, CONFIG.blockHeight);
-            // Highlights for current block
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
-            ctx.fillRect(state.currentBlock.x, state.currentBlock.y, state.currentBlock.width, 4);
+            const b = state.currentBlock;
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x, b.y, b.width, CONFIG.blockHeight);
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(b.x, b.y, b.width, 4);
         }
 
-        // Update & Draw Debris
+        // Draw/Update Debris
         for (let i = state.debris.length - 1; i >= 0; i--) {
             const p = state.debris[i];
             p.update();
             p.draw();
-            if (p.alpha <= 0 || p.y > canvas.height - state.cameraY) {
+            if (p.alpha <= 0 || p.y > canvas.height - state.cameraY + 100) {
                 state.debris.splice(i, 1);
+            }
+        }
+        
+        // Draw/Update Effects (Particles & Text)
+        for (let i = state.effects.length - 1; i >= 0; i--) {
+            const e = state.effects[i];
+            e.update();
+            e.draw();
+            if (e.alpha <= 0) {
+                state.effects.splice(i, 1);
             }
         }
 
         ctx.restore();
-
         requestAnimationFrame(loop);
     }
 
-    // --- INPUT HANDLERS ---
-
+    // --- INPUT ---
     function handleInput(e) {
-        // Prevent default touch actions to stop zooming/scrolling
         if(e.type === 'touchstart') e.preventDefault();
-
-        if (state.isPlaying) {
-            placeBlock();
+        if (state.isPlaying && !state.isPaused) {
+             placeBlock();
         }
     }
 
-    // Start Button
-    document.getElementById('start-btn').addEventListener('click', initGame);
-    document.getElementById('restart-btn').addEventListener('click', initGame);
+    startScreen.addEventListener('click', (e) => {
+        if (e.target.id === 'start-btn') initGame();
+    });
+    restartBtn.addEventListener('click', initGame);
+    pauseBtn.addEventListener('click', togglePause);
 
-    // Game Input (Mouse & Touch)
-    // Use 'pointerdown' to cover both mouse and touch efficiently
     document.addEventListener('pointerdown', (e) => {
-        // Ignore clicks on UI buttons
-        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.tagName === 'BUTTON' || e.target.id === 'pause-btn') return;
         handleInput(e);
     });
 
-    // Spacebar support
     document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && state.isPlaying) {
+        if (e.code === 'Space' && state.isPlaying && !state.isPaused) {
             placeBlock();
+        }
+        if (e.code === 'KeyP') { // P for Pause
+            togglePause();
         }
     });
 

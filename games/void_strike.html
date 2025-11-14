@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VOID STRIKE: Galaxy Attack</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Analytics -->
+    <script defer src="/MyGameArcade/analytics.js"></script>
+    
+    <!-- SCRIPT IMPORTS: Fixed missing dependencies for UnrealBloomPass -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/postprocessing/ShaderPass.js"></script>
+    
+    <!-- Added missing dependencies for bloom pass -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/shaders/LuminosityHighPassShader.js"></script> 
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff0055;
+            --neon-green: #00ff9d;
+            --neon-laser: #ff00ff; /* Laser powerup color */
+            --primary-text: #fff;
+            --secondary-text: #aaa;
+            --background-dark: #050510;
+        }
+
+        body {
+            margin: 0; overflow: hidden;
+            background: var(--background-dark);
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--primary-text);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #gameCanvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        /* --- UI OVERLAY --- */
+        #ui-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex; flex-direction: column;
+        }
+
+        /* --- HUD --- */
+        #hud {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 20px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px var(--neon-blue);
+        }
+
+        .hud-item {
+            font-size: 1.2rem;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+        }
+
+        #powerup-bar {
+            background: rgba(0,0,0,0.5);
+            width: 150px; height: 15px;
+            /* Default to green, change with class */
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green);
+            position: relative;
+            overflow: hidden;
+            border-radius: 3px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        /* Laser Mode style */
+        #powerup-bar.laser {
+            border-color: var(--neon-laser);
+            box-shadow: 0 0 5px var(--neon-laser);
+        }
+
+        #powerup-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(to right, var(--neon-green), #00c07c);
+            transition: width 0.2s ease-out, background 0.3s;
+        }
+
+        #powerup-bar.laser #powerup-fill {
+             background: linear-gradient(to right, var(--neon-laser), #cc00cc);
+        }
+
+        #powerup-label {
+            position: absolute; top: -20px; left: 0;
+            font-size: 0.8rem; width: 100%; text-align: center;
+            color: var(--neon-green); 
+            text-shadow: none;
+            transition: color 0.3s;
+        }
+        
+        #powerup-bar.laser #powerup-label {
+            color: var(--neon-laser);
+        }
+
+
+        /* --- SCREENS --- */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center;
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        .screen.hidden {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4rem; margin: 0 0 20px 0;
+            color: var(--neon-blue);
+            text-shadow: 0 0 20px var(--neon-blue);
+            letter-spacing: 3px;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem; margin: 0 0 15px 0;
+            color: var(--neon-pink);
+            text-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        p {
+            font-size: 1.1rem; color: var(--secondary-text); margin-bottom: 25px;
+            max-width: 500px; line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, var(--neon-blue), #00aaff);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--neon-blue), 0 5px 15px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            pointer-events: auto;
+        }
+        .btn:hover {
+            box-shadow: 0 0 25px var(--neon-blue), 0 8px 20px rgba(0,0,0,0.7);
+            transform: translateY(-2px);
+        }
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 0 10px var(--neon-blue), 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* Vignette overlay to enhance focus */
+        .vignette {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            box-shadow: inset 0 0 220px rgba(0,0,0,0.65);
+        }
+
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-overlay">
+        <div id="hud">
+            <div class="hud-item">SCORE: <span id="score">0</span></div>
+            <div class="hud-item">LEVEL: <span id="level">1</span></div>
+            <div class="hud-item">
+                <div id="powerup-bar"><div id="powerup-fill"></div>
+                    <span id="powerup-label">PWR LV <span id="powerup-level-display">1</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- START SCREEN --><div id="start-screen" class="screen">
+            <h1>VOID STRIKE</h1>
+            <p>Defend the galaxy! Move with mouse/touch or arrows. Hold Space, mouse, or touch to fire. Collect power-ups and destroy enemy waves and bosses.</p>
+            <button id="start-btn" class="btn">START GAME</button>
+        </div>
+
+        <!-- GAME OVER SCREEN --><div id="gameover-screen" class="screen hidden">
+            <h2>GAME OVER</h2>
+            <p>Final Score: <span id="final-score">0</span><br>Reached Level: <span id="final-level">0</span></p>
+            <button id="restart-btn" class="btn">RETRY</button>
+        </div>
+
+        <!-- REMOVED Mobile Controls -->
+    </div>
+
+<script>
+    // --- THREE.JS SETUP ---
+    const canvas = document.getElementById('gameCanvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    // Post-processing for Bloom effect
+    let composer;
+    const renderPass = new THREE.RenderPass(scene, camera);
+    const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.8, 0.1); // Intensity, Radius, Threshold
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
+
+    // --- GAME CONFIG ---
+    const CONFIG = {
+        playerSpeed: 0.35,
+        bulletSpeed: 0.5,
+        fireRate: 8, // frames between shots (effective while holding)
+        enemySpeed: 0.05,
+        laserDuration: 300, // frames (5 seconds at 60fps)
+        playerMaxX: 3.5,
+        enemySpawnInterval: 120, // frames for normal enemies
+        bossSpawnLevel: 3, // Boss appears every N levels
+        levelUpScore: 100,
+        colors: {
+            player: 0x00f3ff,
+            enemy: 0xff0055,
+            bullet: 0x00ff9d,
+            powerup: 0xffff00,
+            boss: 0xff8800,
+            laser: 0xff00ff
+        }
+    };
+
+    // --- GAME STATE ---
+    const state = {
+        running: false,
+        score: 0,
+        level: 1,
+        playerPos: new THREE.Vector3(0, -3, 0),
+        playerTargetX: 0, 
+        playerMoveDir: 0, 
+        lastFireFrame: 0,
+        powerUpLevel: 1, // 1 to 5 (5 is laser)
+        powerUpTimer: 0, // Timer for level 5 only
+        enemies: [],
+        playerBullets: [],
+        enemyBullets: [], 
+        powerUps: [],
+        particles: [],
+        currentBoss: null,
+        enemySpawnTimer: 0,
+        firingHeld: false
+    };
+
+    // --- UI ELEMENTS ---
+    const ui = {
+        score: document.getElementById('score'),
+        level: document.getElementById('level'),
+        powerUpBar: document.getElementById('powerup-bar'), // Get the bar itself
+        powerUpLabel: document.getElementById('powerup-label'), // Get the label
+        powerUpLevelDisplay: document.getElementById('powerup-level-display'),
+        powerUpFill: document.getElementById('powerup-fill'),
+        startScreen: document.getElementById('start-screen'),
+        gameOverScreen: document.getElementById('gameover-screen'),
+        finalScore: document.getElementById('final-score'),
+        finalLevel: document.getElementById('final-level'),
+        startBtn: document.getElementById('start-btn'),
+        restartBtn: document.getElementById('restart-btn')
+    };
+
+    // --- SCENE ELEMENTS ---
+    const playerShip = createPlayerShip();
+    playerShip.position.copy(state.playerPos);
+    scene.add(playerShip);
+
+    // Background Stars
+    // Parallax starfields
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 600;
+    const posArray = new Float32Array(starCount * 3);
+    for(let i = 0; i < starCount * 3; i++) {
+        posArray[i] = (Math.random() - 0.5) * 120;
+        if(i % 3 === 1) posArray[i] = Math.random() * 100 - 50;
+        if(i % 3 === 2) posArray[i] = -Math.random() * 220;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const stars = new THREE.Points(
+        starGeo,
+        new THREE.PointsMaterial({ size: 0.18, color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })
+    );
+    scene.add(stars);
+
+    const starGeo2 = new THREE.BufferGeometry();
+    const starCount2 = 300;
+    const posArray2 = new Float32Array(starCount2 * 3);
+    for(let i = 0; i < starCount2 * 3; i++) {
+        posArray2[i] = (Math.random() - 0.5) * 140;
+        if(i % 3 === 1) posArray2[i] = Math.random() * 120 - 60;
+        if(i % 3 === 2) posArray2[i] = -Math.random() * 260;
+    }
+    starGeo2.setAttribute('position', new THREE.BufferAttribute(posArray2, 3));
+    const stars2 = new THREE.Points(
+        starGeo2,
+        new THREE.PointsMaterial({ size: 0.28, color: 0x99ccff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending })
+    );
+    scene.add(stars2);
+
+    // Nebula
+    const nebulaGeo = new THREE.PlaneGeometry(120, 240);
+    const nebulaMat = new THREE.MeshBasicMaterial({ color: 0x0c1030, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+    const nebula = new THREE.Mesh(nebulaGeo, nebulaMat);
+    nebula.rotation.x = Math.PI / 2;
+    nebula.position.z = -100;
+    nebula.position.y = 0;
+    scene.add(nebula);
+
+
+    camera.position.set(0, 0, 8); 
+    camera.lookAt(0, 0, 0);
+
+    // --- GAME OBJECT FACTORIES ---
+
+    function createPlayerShip() {
+        const group = new THREE.Group();
+        const hullMat = new THREE.MeshPhongMaterial({ color: CONFIG.colors.player, emissive: CONFIG.colors.player, emissiveIntensity: 0.35, shininess: 60 });
+
+        // Fuselage: cylinder + hemispheres (compat with older three versions)
+        const cyl = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+        const cylMesh = new THREE.Mesh(cyl, hullMat);
+        cylMesh.rotation.x = Math.PI / 2;
+        cylMesh.position.y = 0.2;
+        group.add(cylMesh);
+
+        const nose = new THREE.SphereGeometry(0.4, 16, 16, 0, Math.PI * 2, 0, Math.PI/2);
+        const noseMesh = new THREE.Mesh(nose, hullMat);
+        noseMesh.position.set(0, 0.8, 0.2);
+        group.add(noseMesh);
+
+        const tail = new THREE.SphereGeometry(0.4, 16, 16, 0, Math.PI * 2, Math.PI/2, Math.PI/2);
+        const tailMesh = new THREE.Mesh(tail, hullMat);
+        tailMesh.position.set(0, -0.4, -0.2);
+        group.add(tailMesh);
+
+        // Cockpit
+        const cockpit = new THREE.SphereGeometry(0.35, 16, 16);
+        const cockpitMat = new THREE.MeshPhongMaterial({ color: 0x66ccff, emissive: 0x66ccff, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 });
+        const cockpitMesh = new THREE.Mesh(cockpit, cockpitMat);
+        cockpitMesh.position.set(0, 0.3, 0.15);
+        group.add(cockpitMesh);
+
+        // Wings
+        const wingGeo = new THREE.BoxGeometry(1.2, 0.05, 0.5);
+        const wingMat = new THREE.MeshPhongMaterial({ color: CONFIG.colors.player, emissive: CONFIG.colors.player, emissiveIntensity: 0.25 });
+        const wing = new THREE.Mesh(wingGeo, wingMat);
+        wing.position.set(0, -0.1, 0);
+        group.add(wing);
+
+        // Thrusters
+        const thrusterGeo = new THREE.CylinderGeometry(0.15, 0.25, 0.5, 12);
+        const thrusterMat = new THREE.MeshPhongMaterial({ color: 0xffaa00, emissive: 0xffa000, emissiveIntensity: 1.2 });
+        const leftThruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+        leftThruster.position.set(-0.35, -0.6, -0.1);
+        leftThruster.rotation.x = Math.PI / 2;
+        group.add(leftThruster);
+        const rightThruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+        rightThruster.position.set(0.35, -0.6, -0.1);
+        rightThruster.rotation.x = Math.PI / 2;
+        group.add(rightThruster);
+
+        return group;
+    }
+
+    function createBullet(x, y, z) {
+        const geo = new THREE.SphereGeometry(0.1, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: CONFIG.colors.bullet, emissive: CONFIG.colors.bullet, emissiveIntensity: 2 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, z);
+        scene.add(mesh);
+        state.playerBullets.push({ mesh, collider: new THREE.Sphere(mesh.position, 0.1) });
+    }
+
+    function buildAlienShipMesh(variant='basic') {
+        const group = new THREE.Group();
+        // Saucer base
+        const ring = new THREE.TorusGeometry(0.6, 0.15, 16, 24);
+        const ringMat = new THREE.MeshPhongMaterial({ color: 0x8a2be2, emissive: 0x8a2be2, emissiveIntensity: 0.35 });
+        const ringMesh = new THREE.Mesh(ring, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        group.add(ringMesh);
+
+        // Dome
+        const dome = new THREE.SphereGeometry(0.45, 16, 16, 0, Math.PI * 2, 0, Math.PI/2);
+        const domeMat = new THREE.MeshPhongMaterial({ color: 0x5522aa, emissive: 0x5522aa, emissiveIntensity: 0.25 });
+        const domeMesh = new THREE.Mesh(dome, domeMat);
+        domeMesh.position.y = 0.15;
+        group.add(domeMesh);
+
+        // Lights
+        for (let i=0;i<6;i++){
+            const bulb = new THREE.SphereGeometry(0.08, 8, 8);
+            const col = variant==='fast'?0xffaa00:variant==='heavy'?0x8800ff:0xff0055;
+            const bulbMat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.8 });
+            const m = new THREE.Mesh(bulb, bulbMat);
+            const angle = (i/6)*Math.PI*2;
+            m.position.set(Math.cos(angle)*0.6, -0.05, Math.sin(angle)*0.6);
+            group.add(m);
+        }
+
+        // Variant tweaks
+        if (variant==='fast') group.scale.set(0.8,0.8,0.8);
+        if (variant==='heavy') group.scale.set(1.2,1.2,1.2);
+
+        return group;
+    }
+
+    function createEnemy(type = 'basic') {
+        let health, speed, scoreValue;
+        const x = (Math.random() * CONFIG.playerMaxX * 2) - CONFIG.playerMaxX;
+        const y = 8; // Spawn off-screen top
+
+        if (type === 'basic') {
+            health = 1;
+            speed = CONFIG.enemySpeed * (1 + state.level * 0.05);
+            scoreValue = 10;
+        } else if (type === 'fast') {
+            health = 2;
+            speed = CONFIG.enemySpeed * 1.7 * (1 + state.level * 0.06);
+            scoreValue = 20;
+        } else if (type === 'heavy') {
+            health = 3;
+            speed = CONFIG.enemySpeed * 0.8 * (1 + state.level * 0.05);
+            scoreValue = 30;
+        }
+
+        const mesh = buildAlienShipMesh(type);
+        mesh.position.set(x, y, 0);
+        mesh.rotation.x = Math.PI / 2;
+        scene.add(mesh);
+        state.enemies.push({ mesh, health, speed, type, scoreValue, collider: new THREE.Box3().setFromObject(mesh) });
+    }
+
+    function createBoss() {
+        const group = new THREE.Group();
+        const bodyGeo = new THREE.CylinderGeometry(2, 2, 1, 16);
+        const bodyMat = new THREE.MeshPhongMaterial({ color: CONFIG.colors.boss, emissive: CONFIG.colors.boss, emissiveIntensity: 0.3 });
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        bodyMesh.rotation.x = Math.PI / 2;
+        group.add(bodyMesh);
+
+        const turretGeo = new THREE.CylinderGeometry(0.3, 0.3, 1, 8);
+        const turretMat = new THREE.MeshPhongMaterial({ color: 0xcc4400, emissive: 0xcc4400, emissiveIntensity: 0.5 });
+        const turret1 = new THREE.Mesh(turretGeo, turretMat);
+        turret1.position.set(-1.5, 0, 0);
+        turret1.rotation.x = Math.PI / 2;
+        group.add(turret1);
+        const turret2 = new THREE.Mesh(turretGeo, turretMat);
+        turret2.position.set(1.5, 0, 0);
+        turret2.rotation.x = Math.PI / 2;
+        group.add(turret2);
+
+        group.position.set(0, 10, 0); // Spawn further up
+        scene.add(group);
+
+        state.currentBoss = {
+            mesh: group,
+            health: 20 + (state.level * 5), // Boss gets tougher
+            speed: CONFIG.enemySpeed * 0.2, // Boss moves slower
+            scoreValue: 500,
+            collider: new THREE.Box3().setFromObject(group)
+        };
+    }
+
+    function createPowerUp(x, y) {
+        const geo = new THREE.TorusGeometry(0.3, 0.1, 8, 16);
+        const mat = new THREE.MeshBasicMaterial({ color: CONFIG.colors.powerup, emissive: CONFIG.colors.powerup, emissiveIntensity: 1 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, 0);
+        scene.add(mesh);
+        state.powerUps.push({ mesh, collider: new THREE.Sphere(mesh.position, 0.3) });
+    }
+
+    function createParticle(x, y, color = 0xffffff, size = 0.1) {
+        const geo = new THREE.SphereGeometry(size, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, blending: THREE.AdditiveBlending });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x + (Math.random()-0.5)*0.5, y + (Math.random()-0.5)*0.5, 0);
+        scene.add(mesh);
+        state.particles.push({ mesh, life: 60, vx: (Math.random()-0.5)*0.1, vy: (Math.random()-0.5)*0.1 });
+    }
+
+    // --- GAME LOGIC FUNCTIONS ---
+
+    function startGame() {
+        state.running = true;
+        state.score = 0;
+        state.level = 1;
+        state.playerPos.set(0, -3, 0);
+        state.playerMoveDir = 0;
+        state.playerTargetX = 0;
+        state.lastFireFrame = 0;
+        state.powerUpLevel = 1;
+        state.powerUpTimer = 0;
+        state.enemySpawnTimer = 0;
+        state.currentBoss = null;
+        state.firingHeld = false;
+
+        state.enemies.forEach(e => scene.remove(e.mesh)); state.enemies = [];
+        state.playerBullets.forEach(b => scene.remove(b.mesh)); state.playerBullets = [];
+        state.powerUps.forEach(p => scene.remove(p.mesh)); state.powerUps = [];
+        state.particles.forEach(p => scene.remove(p.mesh)); state.particles = [];
+        if (state.currentBoss) scene.remove(state.currentBoss.mesh); state.currentBoss = null;
+
+        playerShip.position.copy(state.playerPos);
+        playerShip.visible = true;
+
+        ui.startScreen.classList.add('hidden');
+        ui.gameOverScreen.classList.add('hidden');
+        updateHUD();
+        animate();
+    }
+
+    function gameOver() {
+        state.running = false;
+        playerShip.visible = false; 
+        createExplosion(playerShip.position, CONFIG.colors.player); 
+        
+        ui.finalScore.innerText = state.score;
+        ui.finalLevel.innerText = state.level;
+        ui.gameOverScreen.classList.remove('hidden');
+    }
+
+    function updateHUD() {
+        ui.score.innerText = state.score;
+        ui.level.innerText = state.level;
+        ui.powerUpLevelDisplay.innerText = state.powerUpLevel;
+
+        if (state.powerUpLevel === 5) {
+            // Show laser timer
+            ui.powerUpBar.classList.add('laser');
+            ui.powerUpLabel.innerText = "LASER TIME";
+            ui.powerUpFill.style.width = `${(state.powerUpTimer / CONFIG.laserDuration) * 100}%`;
+        } else {
+            // Show permanent level (full bar)
+            ui.powerUpBar.classList.remove('laser');
+            ui.powerUpLabel.innerText = `PWR LV ${state.powerUpLevel}`;
+            ui.powerUpFill.style.width = `100%`;
+        }
+    }
+
+    function shootBullet() {
+        const playerX = playerShip.position.x;
+        const playerY = playerShip.position.y;
+        
+        if (state.powerUpLevel === 1) {
+            createBullet(playerX, playerY + 0.5, 0);
+        } else if (state.powerUpLevel === 2) {
+            createBullet(playerX - 0.2, playerY + 0.5, 0);
+            createBullet(playerX + 0.2, playerY + 0.5, 0);
+        } else if (state.powerUpLevel === 3) {
+            createBullet(playerX, playerY + 0.5, 0);
+            createBullet(playerX - 0.4, playerY + 0.4, 0);
+            createBullet(playerX + 0.4, playerY + 0.4, 0);
+        } else if (state.powerUpLevel === 4) {
+            createBullet(playerX - 0.6, playerY + 0.4, 0);
+            createBullet(playerX - 0.2, playerY + 0.6, 0);
+            createBullet(playerX + 0.2, playerY + 0.6, 0);
+            createBullet(playerX + 0.6, playerY + 0.4, 0);
+        } else if (state.powerUpLevel >= 5) { // Laser
+            createBullet(playerX, playerY + 0.5, 0); // Still one bullet for simplicity
+            
+            const laserGeo = new THREE.BoxGeometry(0.3, 2, 0.1);
+            const laserMat = new THREE.MeshBasicMaterial({ color: CONFIG.colors.laser, emissive: CONFIG.colors.laser, emissiveIntensity: 2, transparent: true, opacity: 0.8 });
+            const laserMesh = new THREE.Mesh(laserGeo, laserMat);
+            laserMesh.position.set(playerX, playerY + 1.5, 0);
+            scene.add(laserMesh);
+            state.particles.push({ mesh: laserMesh, life: 10, special: 'laser' }); 
+        }
+    }
+
+    function levelUp() {
+        state.level++;
+        state.score += 50 * state.level; 
+        
+        // Give permanent power-up on level up
+        if (state.powerUpLevel < 4) {
+             state.powerUpLevel++;
+        } else if (state.powerUpLevel === 4) {
+            // At level 4, give temporary laser
+            state.powerUpLevel = 5;
+            state.powerUpTimer = CONFIG.laserDuration;
+        }
+        
+        if (state.level % CONFIG.bossSpawnLevel === 0) {
+            createBoss();
+        }
+    }
+
+    function createExplosion(position, color) {
+        for (let i = 0; i < 20; i++) {
+            createParticle(position.x, position.y, color, Math.random() * 0.3 + 0.1);
+        }
+    }
+
+    // --- ANIMATION LOOP ---
+    let frame = 0;
+    function animate() {
+        if (!state.running) return;
+        requestAnimationFrame(animate);
+        frame++;
+
+        // 1. Player Movement
+        if (state.playerMoveDir !== 0) {
+            state.playerTargetX += state.playerMoveDir * CONFIG.playerSpeed * 2.5; 
+            state.playerTargetX = Math.max(-CONFIG.playerMaxX, Math.min(CONFIG.playerMaxX, state.playerTargetX));
+        }
+        let lerpSpeed = 0.22; 
+        playerShip.position.x += (state.playerTargetX - playerShip.position.x) * lerpSpeed;
+        state.playerPos.x = playerShip.position.x;
+        state.playerPos.y = playerShip.position.y;
+        state.playerPos.z = playerShip.position.z;
+
+
+        // 2. Player Firing
+        if (state.firingHeld && (frame - state.lastFireFrame > CONFIG.fireRate)) {
+            shootBullet();
+            state.lastFireFrame = frame;
+        }
+
+        // 3. Power-Up Timer
+        if (state.powerUpLevel === 5) {
+            state.powerUpTimer--;
+            if (state.powerUpTimer <= 0) {
+                state.powerUpLevel = 4; // Revert to level 4
+                state.powerUpTimer = 0;
+            }
+        }
+        updateHUD(); // Update UI every frame
+
+        // 4. Bullet Movement & Collision
+        for (let i = state.playerBullets.length - 1; i >= 0; i--) {
+            const bullet = state.playerBullets[i];
+            bullet.mesh.position.y += CONFIG.bulletSpeed;
+            bullet.collider.center.copy(bullet.mesh.position);
+
+            let hitEnemy = false;
+            // Check enemies
+            for (let j = state.enemies.length - 1; j >= 0; j--) {
+                const enemy = state.enemies[j];
+                enemy.collider.setFromObject(enemy.mesh);
+                if (bullet.collider.intersectsBox(enemy.collider)) {
+                    enemy.health--;
+                    createExplosion(bullet.mesh.position, CONFIG.colors.enemy);
+                    if (enemy.health <= 0) {
+                        state.score += enemy.scoreValue;
+                        if (state.score >= state.level * CONFIG.levelUpScore) {
+                            levelUp();
+                        }
+                        
+                        if (Math.random() < 0.2 + (state.level * 0.01)) { 
+                            createPowerUp(enemy.mesh.position.x, enemy.mesh.position.y);
+                        }
+                        scene.remove(enemy.mesh);
+                        state.enemies.splice(j, 1);
+                    }
+                    scene.remove(bullet.mesh);
+                    state.playerBullets.splice(i, 1);
+                    hitEnemy = true;
+                    break;
+                }
+            }
+            if (hitEnemy) continue;
+
+            // Check boss
+            if (state.currentBoss) {
+                state.currentBoss.collider.setFromObject(state.currentBoss.mesh);
+                if (bullet.collider.intersectsBox(state.currentBoss.collider)) {
+                    state.currentBoss.health--;
+                    createExplosion(bullet.mesh.position, CONFIG.colors.bullet); 
+                    scene.remove(bullet.mesh);
+                    state.playerBullets.splice(i, 1);
+                    hitEnemy = true; 
+
+                    if (state.currentBoss.health <= 0) {
+                        state.score += state.currentBoss.scoreValue;
+                        createExplosion(state.currentBoss.mesh.position, CONFIG.colors.boss); 
+                        scene.remove(state.currentBoss.mesh);
+                        state.currentBoss = null;
+                        
+                        // Give a big reward for boss
+                        state.level++;
+                        if (state.powerUpLevel < 4) state.powerUpLevel = 4; // Max out guns
+                        else {
+                            state.powerUpLevel = 5; // Give laser
+                            state.powerUpTimer = CONFIG.laserDuration;
+                        }
+                    }
+                }
+            }
+            if (hitEnemy) continue;
+
+            if (bullet.mesh.position.y > 10) {
+                scene.remove(bullet.mesh);
+                state.playerBullets.splice(i, 1);
+            }
+        }
+
+        // 5. Enemy Spawning & Movement
+        if (!state.currentBoss) { 
+            state.enemySpawnTimer++;
+            if (state.enemySpawnTimer > CONFIG.enemySpawnInterval * (1 - state.level * 0.05)) { 
+                const rand = Math.random();
+                if (rand < 0.7) createEnemy('basic');
+                else if (rand < 0.9) createEnemy('fast');
+                else createEnemy('heavy');
+                state.enemySpawnTimer = 0;
+            }
+        }
+
+        for (let i = state.enemies.length - 1; i >= 0; i--) {
+            const enemy = state.enemies[i];
+            enemy.mesh.position.y -= enemy.speed;
+            enemy.collider.setFromObject(enemy.mesh);
+
+            const playerCollider = new THREE.Box3().setFromCenterAndSize(playerShip.position, new THREE.Vector3(1, 1, 1));
+            if (enemy.collider.intersectsBox(playerCollider)) {
+                gameOver();
+                return;
+            }
+
+            if (enemy.mesh.position.y < -10) {
+                scene.remove(enemy.mesh);
+                state.enemies.splice(i, 1);
+            }
+        }
+
+        // 6. Boss Movement
+        if (state.currentBoss) {
+            state.currentBoss.mesh.position.y -= state.currentBoss.speed;
+            if (state.currentBoss.mesh.position.y < 3) state.currentBoss.mesh.position.y = 3;
+            state.currentBoss.collider.setFromObject(state.currentBoss.mesh);
+        }
+
+        // 7. Power-Up Movement & Collection
+        for (let i = state.powerUps.length - 1; i >= 0; i--) {
+            const powerUp = state.powerUps[i];
+            powerUp.mesh.position.y -= CONFIG.enemySpeed * 0.8; 
+            powerUp.mesh.rotation.y += 0.05; 
+            powerUp.collider.center.copy(powerUp.mesh.position);
+
+            const playerCollider = new THREE.Box3().setFromCenterAndSize(playerShip.position, new THREE.Vector3(1, 1, 1));
+            if (powerUp.collider.intersectsBox(playerCollider)) {
+                
+                // NEW Power-up logic
+                if (state.powerUpLevel < 4) {
+                    state.powerUpLevel++;
+                } else {
+                    // If at level 4 or 5, grabbing a new one gives/resets laser
+                    state.powerUpLevel = 5;
+                    state.powerUpTimer = CONFIG.laserDuration;
+                }
+                
+                scene.remove(powerUp.mesh);
+                state.powerUps.splice(i, 1);
+                createParticle(playerShip.position.x, playerShip.position.y, CONFIG.colors.powerup, 0.5);
+                continue; // Added continue
+            }
+
+            if (powerUp.mesh.position.y < -10) {
+                scene.remove(powerUp.mesh);
+                state.powerUps.splice(i, 1);
+            }
+        }
+
+        // 8. Particle Animation
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+            const particle = state.particles[i];
+            if (particle.special === 'laser') {
+                particle.mesh.material.opacity -= 0.1;
+                if (particle.mesh.material.opacity <= 0) {
+                    scene.remove(particle.mesh);
+                    state.particles.splice(i, 1);
+                }
+                continue;
+            }
+            particle.mesh.position.x += particle.vx;
+            particle.mesh.position.y += particle.vy;
+            particle.mesh.material.opacity -= 1 / particle.life;
+            if (particle.mesh.material.opacity <= 0) {
+                scene.remove(particle.mesh);
+                state.particles.splice(i, 1);
+            }
+        }
+
+        // 9. Background Scrolling
+        stars.position.y -= 0.12;
+        if(stars.position.y < -50) stars.position.y = 50;
+        stars2.position.y -= 0.25;
+        if(stars2.position.y < -60) stars2.position.y = 60;
+        nebula.position.y -= 0.06;
+        if(nebula.position.y < -100) nebula.position.y = 100;
+
+        composer.render(); 
+    }
+
+    // --- EVENT LISTENERS ---
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (!state.running) return;
+        if (e.key === 'ArrowLeft' || e.key === 'a') state.playerMoveDir = -1;
+        if (e.key === 'ArrowRight' || e.key === 'd') state.playerMoveDir = 1;
+        if (e.code === 'Space') state.firingHeld = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (!state.running) return;
+        if ((e.key === 'ArrowLeft' || e.key === 'a') && state.playerMoveDir === -1) state.playerMoveDir = 0;
+        if ((e.key === 'ArrowRight' || e.key === 'd') && state.playerMoveDir === 1) state.playerMoveDir = 0;
+        if (e.code === 'Space') state.firingHeld = false;
+    });
+
+    // Mouse and Touch movement
+    function onPointerMove(e) {
+        if (!state.running) return; // Removed isPaused check
+        
+        let clientX;
+        if (e.touches) {
+            if(e.touches.length === 0) return;
+            clientX = e.touches[0].clientX;
+        } else {
+            clientX = e.clientX;
+        }
+        
+        const percent = (clientX / window.innerWidth) * 2 - 1; // -1 to 1
+        state.playerTargetX = percent * CONFIG.playerMaxX;
+    }
+
+        window.addEventListener('mousemove', onPointerMove);
+        // Hold-to-fire (mouse)
+        window.addEventListener('mousedown', ()=>{ if(state.running) state.firingHeld = true; });
+        window.addEventListener('mouseup', ()=>{ state.firingHeld = false; });
+    window.addEventListener('touchmove', (e) => {
+        e.preventDefault(); 
+        onPointerMove(e);
+    }, { passive: false });
+    window.addEventListener('touchstart', (e) => {
+            if (!state.running) return;
+         e.preventDefault();
+         onPointerMove(e);
+            state.firingHeld = true;
+    }, { passive: false });
+        window.addEventListener('touchend', ()=>{ state.firingHeld = false; }, { passive: true });
+    
+
+    // Start and Restart buttons
+    ui.startBtn.addEventListener('click', startGame);
+    ui.restartBtn.addEventListener('click', startGame);
+
+    // Add vignette element
+    const vig = document.createElement('div');
+    vig.className = 'vignette';
+    document.body.appendChild(vig);
+
+    // Initial render for start screen
+    composer.render();
+
+</script>
+</body>
+</html>

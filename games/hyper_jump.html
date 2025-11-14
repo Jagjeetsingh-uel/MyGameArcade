@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hyper Jump - Tower Climb</title>
+    <meta name="description" content="Hyper Jump: Climb the endless tower by jumping on platforms. Screen scrolls down as you ascend. Desktop: arrows + space. Mobile: tilt + tap. High score challenge.">
+    <meta name="keywords" content="HTML5 game, tower climb, endless jumper, platformer, mobile game, browser game, hyper jump">
+    <meta name="author" content="Jagjeet Singh">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://jagjeetsingh-uel.github.io/MyGameArcade/games/hyper_jump.html">
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Hyper Jump - Endless Tower Climb">
+    <meta property="og:description" content="Jump higher and higher in this retro-style tower climber. Avoid the rising floor!">
+    <meta property="og:url" content="https://jagjeetsingh-uel.github.io/MyGameArcade/games/hyper_jump.html">
+    <meta property="og:image" content="https://jagjeetsingh-uel.github.io/MyGameArcade/assets/cover.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Hyper Jump - Tower Climb">
+    <meta name="twitter:description" content="Endless jumping platformer with scrolling screen.">
+    <meta name="twitter:image" content="https://jagjeetsingh-uel.github.io/MyGameArcade/assets/cover.png">
+    <meta name="theme-color" content="#050510">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #050510;
+            --accent: #00ff9d; /* Cyber Green */
+            --secondary: #00d2ff; /* Cyber Blue */
+            --danger: #ff0055; /* Cyber Red */
+            --ui-bg: rgba(255, 255, 255, 0.05);
+            --font-main: 'Rajdhani', sans-serif;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: var(--bg-color);
+            font-family: var(--font-main);
+            color: white;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .hud {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .score-container { text-align: left; }
+
+        .score-val {
+            font-size: 3.5rem; font-weight: 900; line-height: 1;
+            color: white;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .label { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.7; }
+
+        .btn-pause {
+            width: 50px; height: 50px;
+            border-radius: 12px;
+            background: var(--ui-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; cursor: pointer; color: var(--accent);
+            transition: all 0.2s;
+        }
+        .btn-pause:active { transform: scale(0.9); background: rgba(255,255,255,0.15); }
+        .btn-pause.hidden { display: none; }
+
+        /* --- MENUS --- */
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.9);
+            backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20;
+            transition: opacity 0.3s ease;
+            opacity: 0; pointer-events: none;
+        }
+        .menu-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 40px; border-radius: 20px;
+            text-align: center; width: 85%; max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+        }
+
+        h1 {
+            margin: 0; font-size: 3rem; text-transform: uppercase;
+            font-style: italic; font-weight: 900;
+            color: white; letter-spacing: -1px;
+            margin-bottom: 10px;
+        }
+
+        p { color: #aaa; margin-bottom: 30px; font-size: 1.1rem; line-height: 1.6; }
+
+        /* Device-Specific Instructions */
+        .tutorial-box { display: none; }
+        .tutorial-box.active {
+            display: block;
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 3px solid var(--accent);
+            text-align: left;
+        }
+        .tutorial-box p { margin: 10px 0; color: #fff; font-size: 1.1rem; }
+        .highlight { color: var(--accent); font-weight: bold; }
+        .key {
+            background: #fff; color: #000; padding: 2px 8px; border-radius: 4px;
+            font-family: monospace; font-weight: bold;
+        }
+
+        .btn-primary {
+            background: var(--accent); color: #000;
+            border: none; width: 100%; padding: 18px;
+            font-family: var(--font-main); font-weight: 900; font-size: 1.4rem;
+            text-transform: uppercase; letter-spacing: 1px;
+            border-radius: 8px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(0, 255, 157, 0.4);
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.96); box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
+        
+        #pause-text {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem; color: #fff; font-weight: 900;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            display: none;
+        }
+        #pause-text.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud">
+            <div class="score-container">
+                <div class="score-val" id="scoreVal">0</div>
+                <div class="label" id="highScoreVal">HI: 0</div>
+            </div>
+            <div class="btn-pause hidden" id="pauseBtn">||</div>
+        </div>
+        <div id="pause-text">PAUSED</div>
+    </div>
+
+    <!-- START MENU -->
+    <div id="startMenu" class="menu-overlay active">
+        <div class="card">
+            <h1>Hyper<br><span style="color:var(--accent)">Jump</span></h1>
+            
+            <!-- Desktop Instructions -->
+            <div class="tutorial-box" id="tutorial-desktop">
+                <p>1. <span class="key">←</span> / <span class="key">→</span> to Move</p>
+                <p>2. <span class="key">SPACE</span> to Jump</p>
+                <p>3. Don't fall in the <span class="highlight">Glitch!</span></p>
+            </div>
+            
+            <!-- Mobile Instructions -->
+            <div class="tutorial-box" id="tutorial-mobile">
+                <p>1. <span class="highlight">TILT</span> device to Move</p>
+                <p>2. <span class="highlight">TAP</span> screen to Jump</p>
+                <p>3. Don't fall in the <span class="highlight">Glitch!</span></p>
+            </div>
+
+            <button class="btn-primary" id="startBtn">START</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER MENU -->
+    <div id="gameOverMenu" class="menu-overlay">
+        <div class="card">
+            <h1 style="color:var(--danger)">GAME OVER</h1>
+            <p>Score: <span id="finalScore" style="color:white; font-weight:bold">0</span></p>
+            <p style="margin-top:-20px;">High Score: <span id="finalHighScore" style="color:white; font-weight:bold">0</span></p>
+            <button class="btn-primary" id="retryBtn">RETRY</button>
+        </div>
+    </div>
+
+<script>
+    /**
+     * HYPER JUMP
+     * A vertical platformer inspired by Icy Tower.
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI
+    const ui = {
+        score: document.getElementById('scoreVal'),
+        highScore: document.getElementById('highScoreVal'),
+        startMenu: document.getElementById('startMenu'),
+        gameOverMenu: document.getElementById('gameOverMenu'),
+        finalScore: document.getElementById('finalScore'),
+        finalHighScore: document.getElementById('finalHighScore'),
+        pauseBtn: document.getElementById('pauseBtn'),
+        pauseText: document.getElementById('pause-text'),
+        startBtn: document.getElementById('startBtn'),
+        retryBtn: document.getElementById('retryBtn')
+    };
+
+    // CONFIG
+    // Get colors from CSS variables for use in JavaScript
+    const COLORS = {
+        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00ff9d',
+        secondary: getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#00d2ff',
+        danger: getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ff0055',
+        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#050510'
+    };
+    
+    const CFG = {
+        gravity: 0.5,
+        friction: 0.8,
+        moveSpeed: 6,
+        jumpForce: 15,
+        platformHeight: 15,
+        minPlatformWidth: 80,
+        maxPlatformWidth: 150,
+        platformGapY: 100,
+        baseFloorSpeed: 0.2, // <-- Made floor much slower
+        cameraLerp: 0.08,
+        playerSize: 25
+    };
+
+    // STATE
+    let state = {
+        running: false,
+        paused: false,
+        gameStarted: false, // NEW: Controls if the camera/floor moves
+        score: 0,
+        highScore: 0,
+        cameraY: 0,
+        floorY: 0, // The rising "death" floor
+        isMobile: false
+    };
+
+    // ENTITIES
+    let player = {
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        width: CFG.playerSize,
+        height: CFG.playerSize,
+        onGround: false,
+        // Animation state
+        anim: {
+            scaleX: 1,
+            scaleY: 1,
+            eyeSize: 4,
+            eyeBlinkTimer: 0
+        }
+    };
+    let platforms = [];
+    let particles = [];
+    let keys = { left: false, right: false, jump: false };
+
+    // --- INIT ---
+    function init() {
+        resize();
+        detectDevice();
+        loadHighScore();
+        ui.startBtn.addEventListener('click', requestStartGame);
+        ui.retryBtn.addEventListener('click', startGame);
+        ui.pauseBtn.addEventListener('click', togglePause);
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        draw(); // Draw initial menu state
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+
+    function detectDevice() {
+        state.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (state.isMobile) {
+            document.getElementById('tutorial-mobile').classList.add('active');
+        } else {
+            document.getElementById('tutorial-desktop').classList.add('active');
+        }
+    }
+
+    function loadHighScore() {
+        state.highScore = parseInt(sessionStorage.getItem('hyperJumpHigh') || 0);
+        ui.highScore.innerText = `HI: ${state.highScore}`;
+    }
+
+    function saveHighScore() {
+        if (state.score > state.highScore) {
+            state.highScore = state.score;
+            sessionStorage.setItem('hyperJumpHigh', state.highScore);
+        }
+    }
+
+    function requestStartGame() {
+        if (state.isMobile) {
+            // Check for Device Motion permission
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(response => {
+                        if (response == 'granted') {
+                            window.addEventListener('devicemotion', handleMotion);
+                        }
+                        startGame();
+                    })
+                    .catch(() => startGame()); // Start anyway if permission denied
+            } else {
+                // For Android or devices without this API
+                window.addEventListener('devicemotion', handleMotion);
+                startGame();
+            }
+        } else {
+            startGame();
+        }
+    }
+
+    function startGame() {
+        state.running = true;
+        state.paused = false;
+        state.gameStarted = false; // <-- FIX: Reset gameStarted flag
+        state.score = 0;
+        state.cameraY = 0;
+        state.floorY = canvas.height + 100;
+        
+        player.x = canvas.width / 2 - CFG.playerSize / 2;
+        player.y = canvas.height - 100;
+        player.vx = 0;
+        player.vy = 0;
+        player.onGround = false;
+
+        platforms = [];
+        particles = [];
+        
+        // Create foundation
+        platforms.push({
+            x: 0, // Start at left edge
+            y: canvas.height - 50,
+            width: canvas.width, // Full width
+            height: CFG.platformHeight
+        });
+        
+        // Create initial screen of platforms
+        generatePlatforms(canvas.height, 0);
+
+        ui.score.innerText = "0";
+        ui.startMenu.classList.remove('active');
+        ui.gameOverMenu.classList.remove('active'); // <-- FIX: Use remove('active')
+        ui.pauseBtn.classList.remove('hidden');
+        ui.pauseText.classList.remove('active');
+
+        loop();
+    }
+
+    function gameOver() {
+        state.running = false;
+        saveHighScore();
+        ui.finalScore.innerText = state.score;
+        ui.finalHighScore.innerText = state.highScore;
+        ui.gameOverMenu.classList.add('active');
+        ui.pauseBtn.classList.add('hidden');
+    }
+
+    function togglePause() {
+        if (!state.running) return;
+        state.paused = !state.paused;
+        ui.pauseBtn.innerText = state.paused ? "▶" : "||";
+        ui.pauseText.classList.toggle('active', state.paused);
+        if (!state.paused) {
+            loop(); // Resume loop
+        }
+    }
+
+    // --- CONTROLS ---
+    function handleKeyDown(e) {
+        if (e.code === 'ArrowLeft') keys.left = true;
+        if (e.code === 'ArrowRight') keys.right = true;
+        if (e.code === 'Space') keys.jump = true;
+        if (e.code === 'KeyP') togglePause();
+    }
+    function handleKeyUp(e) {
+        if (e.code === 'ArrowLeft') keys.left = false;
+        if (e.code === 'ArrowRight') keys.right = false;
+        if (e.code === 'Space') keys.jump = false;
+    }
+    function handleTouchStart(e) {
+        e.preventDefault();
+        if (!state.running) return;
+        keys.jump = true; // Tap anywhere to jump
+        // We set it back to false in the update loop
+    }
+    function handleMotion(e) {
+        // Use rotationRate.gamma (left/right tilt speed)
+        // It's more responsive than acceleration.x
+        if (e.rotationRate && e.rotationRate.gamma) {
+            let tilt = e.rotationRate.gamma;
+            player.vx = tilt * 0.4; // Adjust sensitivity
+        }
+    }
+
+    // --- GAME LOGIC ---
+    function generatePlatforms(fromY, toY) {
+        let y = fromY - CFG.platformGapY;
+        while (y > toY) {
+            let width = CFG.minPlatformWidth + Math.random() * (CFG.maxPlatformWidth - CFG.minPlatformWidth);
+            let x = Math.random() * (canvas.width - width);
+            platforms.push({ x, y, width, height: CFG.platformHeight });
+            y -= CFG.platformGapY;
+        }
+    }
+
+    function createParticles(x, y, color) {
+        for(let i=0; i<5; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 5,
+                vy: (Math.random() - 0.5) * 5 - 2,
+                life: 30,
+                color: color
+            });
+        }
+    }
+    
+    // --- UPDATE ---
+    function update() {
+        // 1. Handle Jump Input
+        if (keys.jump && player.onGround) {
+            // This is the FIRST jump, so start the game!
+            if (!state.gameStarted) {
+                state.gameStarted = true;
+                state.floorY = canvas.height; // Set floor to bottom
+            }
+
+            player.vy = -CFG.jumpForce;
+            player.onGround = false;
+            keys.jump = false; // <-- FIX: Consume the jump input immediately
+            
+            // Squash animation
+            player.anim.scaleX = 1.3;
+            player.anim.scaleY = 0.7;
+            createParticles(player.x + player.width/2, player.y + player.height, '#fff');
+        }
+
+        // 2. Player Physics (Vertical)
+        player.vy += CFG.gravity;
+        player.y += player.vy;
+        
+        // Assume not on ground until we check
+        player.onGround = false; 
+
+        // 3. Platform Collision
+        for (let p of platforms) {
+            // Check if player is falling (vy > 0)
+            // and if player's *previous* bottom was above platform's top
+            // and if player's *current* bottom is below platform's top
+            let prevBottom = (player.y - player.vy) + player.height;
+            let currBottom = player.y + player.height;
+            
+            if (player.vy >= 0 && 
+                prevBottom <= p.y && 
+                currBottom >= p.y &&
+                player.x + player.width > p.x && 
+                player.x < p.x + p.width) 
+            {
+                player.y = p.y - player.height;
+                player.vy = 0;
+                player.onGround = true; // <-- Ground is detected!
+                
+                // Land stretch
+                player.anim.scaleX = 1.2;
+                player.anim.scaleY = 0.8;
+                break; // Stop checking
+            }
+        }
+
+        // 4. Handle Horizontal Input & Friction (NOW that we know if we are onGround)
+        
+        // --- NEW PHYSICS LOGIC ---
+        // Apply friction *first* if on ground
+        if (player.onGround) {
+            player.vx *= CFG.friction;
+        }
+
+        // Then, allow player input to override friction
+        if (!state.isMobile) {
+            if (keys.left) {
+                player.vx = -CFG.moveSpeed;
+            } else if (keys.right) {
+                player.vx = CFG.moveSpeed;
+            }
+        } else {
+             // For mobile, tilt adds/subtracts velocity, so friction just slows it down
+             if (player.onGround) {
+                player.vx *= (CFG.friction * 0.9);
+            }
+        }
+        // --- END NEW LOGIC ---
+        
+        // 5. Apply Horizontal Physics
+        player.x += player.vx; // Apply horizontal movement *after* friction and input
+
+        // 6. Screen Bounds (Left/Right)
+        if (player.x < 0) { player.x = 0; player.vx = 0; }
+        if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.vx = 0; }
+
+        // --- All vertical logic is now gated by state.gameStarted ---
+        // FIX: Floor only moves after player has climbed 30 points
+        if (state.gameStarted && state.score > 30) {
+            // 7. Update Score
+            let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
+            if (heightScore > state.score) {
+                state.score = heightScore;
+            }
+            ui.score.innerText = state.score;
+
+            // 8. Move Glitch Floor
+            state.floorY -= (CFG.baseFloorSpeed + (state.score / 500)); // Gets faster with score
+            
+            // 9. Update Camera
+            let targetCamY = player.y - canvas.height * 0.6; // Follow player
+            let floorCamY = state.floorY - canvas.height; // Be pushed by floor
+            
+            let desiredCamY = Math.min(targetCamY, floorCamY + 50); // +50px buffer from floor
+            state.cameraY += (desiredCamY - state.cameraY) * CFG.cameraLerp;
+        } else if (state.gameStarted) {
+            // Player has jumped, but not high enough for floor to move
+            // We still need to update score and camera
+            let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
+            if (heightScore > state.score) {
+                state.score = heightScore;
+            }
+            ui.score.innerText = state.score;
+
+            // Camera follows player, but floor doesn't push
+            let targetCamY = player.y - canvas.height * 0.6;
+            if (targetCamY < state.cameraY) { // Only move up
+                 state.cameraY += (targetCamY - state.cameraY) * CFG.cameraLerp;
+            }
+
+            // Generate platforms
+            let topOfScreen = state.cameraY;
+            if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + CFG.platformGapY) {
+                generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height);
+            }
+        }
+        // --- End of gameStarted block ---
+        
+        // 12. Check Game Over (This check is always on)
+        // If player falls below the rising floor OR off the bottom of the screen
+        let deathLine = state.gameStarted ? state.floorY : canvas.height + 50;
+        if (player.y > deathLine) {
+            gameOver();
+            return; // <-- THIS IS THE LEGAL RETURN STATEMENT
+        }
+
+        // 13. Update Animations
+        // Lerp back to normal size
+        player.anim.scaleX += (1 - player.anim.scaleX) * 0.2;
+        player.anim.scaleY += (1 - player.anim.scaleY) * 0.2;
+        // Blinking
+        player.anim.eyeBlinkTimer--;
+        if(player.anim.eyeBlinkTimer <= 0) {
+            player.anim.eyeSize = (player.anim.eyeSize === 4) ? 1 : 4;
+            player.anim.eyeBlinkTimer = (player.anim.eyeSize === 1) ? 10 : (100 + Math.random() * 200);
+        }
+
+        // 14. Update Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    // --- DRAW ---
+    function draw() {
+        ctx.fillStyle = COLORS.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(0, -state.cameraY); // Apply camera
+
+        // Draw Glitch Floor
+        let grad = ctx.createLinearGradient(0, state.floorY, 0, state.floorY + 200);
+        grad.addColorStop(0, 'rgba(255, 0, 85, 0.8)');
+        grad.addColorStop(1, 'rgba(255, 0, 85, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, state.floorY, canvas.width, canvas.height * 2); // Fill rest of screen
+        
+        // Glitch line
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, state.floorY);
+        // FIX: Replaced '0.s5' with '0.5'
+        for(let i=0; i<canvas.width; i+=10) ctx.lineTo(i + (Math.random()-0.5)*10, state.floorY + (Math.random()-0.5)*4);
+        ctx.stroke();
+
+        // Draw Platforms
+        platforms.forEach(p => {
+            // Cull platforms
+            if (p.y > state.cameraY + canvas.height || p.y + p.height < state.cameraY - 50) { // -50 buffer
+                return;
+            }
+            ctx.fillStyle = '#222';
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+            ctx.fillStyle = COLORS.secondary; // Use JS color constant
+            ctx.fillRect(p.x, p.y, p.width, 3); // Top highlight
+        });
+
+        // Draw Player (Cube)
+        ctx.save();
+        let pCenterX = player.x + player.width / 2;
+        let pCenterY = player.y + player.height / 2;
+        let pDrawWidth = player.width * player.anim.scaleX;
+        let pDrawHeight = player.height * player.anim.scaleY;
+        
+        ctx.translate(pCenterX, pCenterY);
+        
+        // Body
+        ctx.fillStyle = COLORS.accent; // Use JS color constant
+        ctx.shadowColor = COLORS.accent; // Use JS color constant
+        ctx.shadowBlur = 15;
+        ctx.fillRect(-pDrawWidth / 2, -pDrawHeight / 2, pDrawWidth, pDrawHeight);
+        ctx.shadowBlur = 0;
+        
+        // Eyes
+        ctx.fillStyle = '#000';
+        let eyeOffX = 5;
+        if(player.vx > 1) eyeOffX = 7;
+        if(player.vx < -1) eyeOffX = 3;
+        
+        ctx.fillRect(-eyeOffX - 2, -3, 4, player.anim.eyeSize); // Left
+        ctx.fillRect(eyeOffX - 2, -3, 4, player.anim.eyeSize); // Right
+        
+        ctx.restore(); // Restore from player transform
+
+        // Draw Particles
+        particles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life / 30;
+            ctx.fillRect(p.x, p.y, 3, 3);
+            ctx.globalAlpha = 1;
+        });
+
+        ctx.restore(); // Restore from camera
+    }
+
+    // --- GAME LOOP ---
+    function loop() {
+        if (!state.running) {
+            return; // LEGAL return
+        }
+        if (state.paused) {
+            draw(); // Keep drawing when paused, but don't update
+            return; // LEGAL return
+        }
+
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>

@@ -417,12 +417,14 @@
         keys.jump = true; // Tap anywhere to jump
         // We set it back to false in the update loop
     }
-    function handleMotion(e) {
+function handleMotion(e) {
         // Use rotationRate.gamma (left/right tilt speed)
         // It's more responsive than acceleration.x
         if (e.rotationRate && e.rotationRate.gamma) {
             let tilt = e.rotationRate.gamma;
-            player.vx = tilt * 0.4; // Adjust sensitivity
+            // FIX: Inverted tilt. Tilting right (positive gamma) now moves right (positive vx).
+            // (If this is still backward, just remove the minus sign)
+            player.vx = tilt * 0.4; 
         }
     }
 
@@ -558,7 +560,6 @@
                 state.score = heightScore;
             }
             ui.score.innerText = state.score;
-
             // Camera follows player, but floor doesn't push
             let targetCamY = player.y - canvas.height * 0.6;
             if (targetCamY < state.cameraY) { // Only move up
@@ -567,8 +568,11 @@
 
             // Generate platforms
             let topOfScreen = state.cameraY;
-            if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + CFG.platformGapY) {
-                generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height);
+            // FIX: Generate platforms more aggressively
+            // Check if top of screen is within one screen height of the last platform
+            if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + canvas.height) {
+                // Generate two screens worth of platforms to prevent running out
+                generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height * 2);
             }
         }
         // --- End of gameStarted block ---

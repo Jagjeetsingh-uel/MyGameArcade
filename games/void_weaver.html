@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-M9WJCCFBRH"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);} 
+            gtag('js', new Date());
+            gtag('config', 'G-M9WJCCFBRH');
+        </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Void Weaver v2</title>
@@ -20,8 +28,7 @@
     <meta name="twitter:description" content="Gravity sling arcade. Hold to orbit, release to launch.">
     <meta name="twitter:image" content="https://jagjeetsingh-uel.github.io/MyGameArcade/assets/void_weaver.png">
     <link href="https://fonts.googleapis.com/css2?family=Jura:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Site Analytics -->
-    <script defer src="/MyGameArcade/analytics.js"></script>
+    
     
     <style>
         :root {
@@ -588,4 +595,13 @@
 
 </script>
 </body>
+<script>
+    window.addEventListener('DOMContentLoaded', function(){
+        const track = (n,p)=>window.trackEvent&&window.trackEvent(n,p);
+        var startBtn = document.getElementById('startBtn');
+        if(startBtn) startBtn.addEventListener('click', ()=>track('game_start', { game: 'void_weaver' }));
+        var retryBtn = document.getElementById('retryBtn');
+        if(retryBtn) retryBtn.addEventListener('click', ()=>track('game_restart', { game: 'void_weaver' }));
+    });
+</script>
 </html>

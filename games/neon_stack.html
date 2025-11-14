@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-M9WJCCFBRH"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);} 
+            gtag('js', new Date());
+            gtag('config', 'G-M9WJCCFBRH');
+        </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Stack - High Rise</title>
-    <!-- Site Analytics -->
-    <script defer src="/MyGameArcade/analytics.js"></script>
+    
     <!-- SEO -->
     <meta name="description" content="Neon Stack: Tap with precision to place moving blocks and build the tallest neon tower.">
     <meta name="keywords" content="neon stack, stacker game, timing game, tower build, HTML5 arcade">
@@ -575,4 +582,13 @@
 
 </script>
 </body>
+<script>
+    window.addEventListener('DOMContentLoaded', function(){
+        const track = (n,p)=>window.trackEvent&&window.trackEvent(n,p);
+        var startBtn = document.getElementById('start-btn');
+        if(startBtn) startBtn.addEventListener('click', ()=>track('game_start', { game: 'neon_stack' }));
+        var retryBtn = document.getElementById('restart-btn');
+        if(retryBtn) retryBtn.addEventListener('click', ()=>track('game_restart', { game: 'neon_stack' }));
+    });
+</script>
 </html>

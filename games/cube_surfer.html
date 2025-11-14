@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-M9WJCCFBRH"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);} 
+            gtag('js', new Date());
+            gtag('config', 'G-M9WJCCFBRH');
+        </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cube Surfer 3D</title>
@@ -159,8 +167,7 @@
     </style>
     <!-- Load Three.js -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <!-- Site Analytics -->
-    <script defer src="/MyGameArcade/analytics.js"></script>
+    
 </head>
 <body>
 
@@ -672,4 +679,14 @@
 
 </script>
 </body>
+<script>
+    // Analytics: track starts and restarts
+    window.addEventListener('DOMContentLoaded', function(){
+        const track = (n,p)=>window.trackEvent&&window.trackEvent(n,p);
+        var playBtn = document.getElementById('playBtn');
+        if(playBtn) playBtn.addEventListener('click', ()=>track('game_start', { game: 'cube_surfer' }));
+        var retryBtn = document.getElementById('retryBtn');
+        if(retryBtn) retryBtn.addEventListener('click', ()=>track('game_restart', { game: 'cube_surfer' }));
+    });
+</script>
 </html>

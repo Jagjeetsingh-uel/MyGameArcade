@@ -580,9 +580,17 @@
         // 5. Apply Horizontal Physics
         player.x += player.vx; 
 
-        // 6. Screen Bounds (Left/Right)
-        if (player.x < 0) { player.x = 0; player.vx = 0; }
-        if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.vx = 0; }
+        // 6. Screen Bounds (Left/Right) with Bounce Back
+        if (player.x < 0) { 
+            player.x = 0; 
+            player.vx = -player.vx * 0.6; // Bounce back with 60% velocity
+            createParticles(player.x, player.y + player.height/2, '#fff');
+        }
+        if (player.x + player.width > canvas.width) { 
+            player.x = canvas.width - player.width; 
+            player.vx = -player.vx * 0.6; // Bounce back with 60% velocity
+            createParticles(player.x + player.width, player.y + player.height/2, '#fff');
+        }
 
         // --- All vertical logic is now gated by state.gameStarted ---
         // FIX: Floor only moves after player has climbed 70 points

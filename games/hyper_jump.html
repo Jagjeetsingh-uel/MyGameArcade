@@ -205,8 +205,10 @@
 
 <script>
     /**
-     * HYPER JUMP
-     * A vertical platformer inspired by Icy Tower.
+     * HYPER JUMP v2
+     * - Fixed Tilt Controls
+     * - Fixed Platform Generation Bug
+     * - Added 500m Safe Zones
      */
 
     const canvas = document.getElementById('gameCanvas');
@@ -227,7 +229,6 @@
     };
 
     // CONFIG
-    // Get colors from CSS variables for use in JavaScript
     const COLORS = {
         accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00ff9d',
         secondary: getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#00d2ff',
@@ -244,7 +245,7 @@
         minPlatformWidth: 80,
         maxPlatformWidth: 150,
         platformGapY: 100,
-        baseFloorSpeed: 0.2, // <-- Made floor much slower
+        baseFloorSpeed: 0.2, 
         cameraLerp: 0.08,
         playerSize: 25
     };
@@ -253,12 +254,14 @@
     let state = {
         running: false,
         paused: false,
-        gameStarted: false, // NEW: Controls if the camera/floor moves
+        gameStarted: false, 
         score: 0,
         highScore: 0,
         cameraY: 0,
-        floorY: 0, // The rising "death" floor
-        isMobile: false
+        floorY: 0, 
+        isMobile: false,
+        nextSafeZone: 500, // <-- NEW: For 500m checkpoint
+        spawnSafeZone: false // <-- NEW: Flag to spawn checkpoint
     };
 
     // ENTITIES
@@ -268,7 +271,6 @@
         width: CFG.playerSize,
         height: CFG.playerSize,
         onGround: false,
-        // Animation state
         anim: {
             scaleX: 1,
             scaleY: 1,
@@ -291,7 +293,7 @@
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('keyup', handleKeyUp);
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-        draw(); // Draw initial menu state
+        draw(); 
     }
 
     function resize() {
@@ -323,7 +325,6 @@
 
     function requestStartGame() {
         if (state.isMobile) {
-            // Check for Device Motion permission
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 DeviceMotionEvent.requestPermission()
                     .then(response => {
@@ -332,9 +333,8 @@
                         }
                         startGame();
                     })
-                    .catch(() => startGame()); // Start anyway if permission denied
+                    .catch(() => startGame()); 
             } else {
-                // For Android or devices without this API
                 window.addEventListener('devicemotion', handleMotion);
                 startGame();
             }
@@ -346,10 +346,12 @@
     function startGame() {
         state.running = true;
         state.paused = false;
-        state.gameStarted = false; // <-- FIX: Reset gameStarted flag
+        state.gameStarted = false; 
         state.score = 0;
         state.cameraY = 0;
         state.floorY = canvas.height + 100;
+        state.nextSafeZone = 500; // <-- NEW
+        state.spawnSafeZone = false; // <-- NEW
         
         player.x = canvas.width / 2 - CFG.playerSize / 2;
         player.y = canvas.height - 100;
@@ -362,9 +364,9 @@
         
         // Create foundation
         platforms.push({
-            x: 0, // Start at left edge
+            x: 0, 
             y: canvas.height - 50,
-            width: canvas.width, // Full width
+            width: canvas.width, 
             height: CFG.platformHeight
         });
         
@@ -373,7 +375,7 @@
 
         ui.score.innerText = "0";
         ui.startMenu.classList.remove('active');
-        ui.gameOverMenu.classList.remove('active'); // <-- FIX: Use remove('active')
+        ui.gameOverMenu.classList.remove('active'); 
         ui.pauseBtn.classList.remove('hidden');
         ui.pauseText.classList.remove('active');
 
@@ -414,27 +416,36 @@
     function handleTouchStart(e) {
         e.preventDefault();
         if (!state.running) return;
-        keys.jump = true; // Tap anywhere to jump
-        // We set it back to false in the update loop
+        keys.jump = true; 
     }
-function handleMotion(e) {
-        // Use rotationRate.gamma (left/right tilt speed)
-        // It's more responsive than acceleration.x
+    function handleMotion(e) {
         if (e.rotationRate && e.rotationRate.gamma) {
             let tilt = e.rotationRate.gamma;
-            // FIX: Inverted tilt. Tilting right (positive gamma) now moves right (positive vx).
-            // (If this is still backward, just remove the minus sign)
-            player.vx = tilt * 0.4; 
+            // FIX: Inverted tilt. Tilting right (positive gamma) now moves right.
+            player.vx = tilt * 0.4;
         }
     }
 
     // --- GAME LOGIC ---
     function generatePlatforms(fromY, toY) {
         let y = fromY - CFG.platformGapY;
+
+        // Check if we need to spawn a safe zone
+        if (state.spawnSafeZone) {
+            platforms.push({
+                x: 0, y: y,
+                width: canvas.width,
+                height: CFG.platformHeight,
+                isSafeZone: true // For styling
+            });
+            y -= CFG.platformGapY; // Add extra gap
+            state.spawnSafeZone = false; // Reset flag
+        }
+
         while (y > toY) {
             let width = CFG.minPlatformWidth + Math.random() * (CFG.maxPlatformWidth - CFG.minPlatformWidth);
             let x = Math.random() * (canvas.width - width);
-            platforms.push({ x, y, width, height: CFG.platformHeight });
+            platforms.push({ x, y, width, height: CFG.platformHeight, isSafeZone: false });
             y -= CFG.platformGapY;
         }
     }
@@ -455,17 +466,14 @@ function handleMotion(e) {
     function update() {
         // 1. Handle Jump Input
         if (keys.jump && player.onGround) {
-            // This is the FIRST jump, so start the game!
             if (!state.gameStarted) {
                 state.gameStarted = true;
-                state.floorY = canvas.height; // Set floor to bottom
+                state.floorY = canvas.height; 
             }
-
             player.vy = -CFG.jumpForce;
             player.onGround = false;
-            keys.jump = false; // <-- FIX: Consume the jump input immediately
+            keys.jump = false; 
             
-            // Squash animation
             player.anim.scaleX = 1.3;
             player.anim.scaleY = 0.7;
             createParticles(player.x + player.width/2, player.y + player.height, '#fff');
@@ -475,14 +483,10 @@ function handleMotion(e) {
         player.vy += CFG.gravity;
         player.y += player.vy;
         
-        // Assume not on ground until we check
         player.onGround = false; 
 
         // 3. Platform Collision
         for (let p of platforms) {
-            // Check if player is falling (vy > 0)
-            // and if player's *previous* bottom was above platform's top
-            // and if player's *current* bottom is below platform's top
             let prevBottom = (player.y - player.vy) + player.height;
             let currBottom = player.y + player.height;
             
@@ -494,24 +498,19 @@ function handleMotion(e) {
             {
                 player.y = p.y - player.height;
                 player.vy = 0;
-                player.onGround = true; // <-- Ground is detected!
+                player.onGround = true; 
                 
-                // Land stretch
                 player.anim.scaleX = 1.2;
                 player.anim.scaleY = 0.8;
-                break; // Stop checking
+                break; 
             }
         }
 
-        // 4. Handle Horizontal Input & Friction (NOW that we know if we are onGround)
-        
-        // --- NEW PHYSICS LOGIC ---
-        // Apply friction *first* if on ground
+        // 4. Handle Horizontal Input & Friction
         if (player.onGround) {
             player.vx *= CFG.friction;
         }
 
-        // Then, allow player input to override friction
         if (!state.isMobile) {
             if (keys.left) {
                 player.vx = -CFG.moveSpeed;
@@ -519,77 +518,76 @@ function handleMotion(e) {
                 player.vx = CFG.moveSpeed;
             }
         } else {
-             // For mobile, tilt adds/subtracts velocity, so friction just slows it down
              if (player.onGround) {
                 player.vx *= (CFG.friction * 0.9);
             }
         }
-        // --- END NEW LOGIC ---
         
         // 5. Apply Horizontal Physics
-        player.x += player.vx; // Apply horizontal movement *after* friction and input
+        player.x += player.vx; 
 
         // 6. Screen Bounds (Left/Right)
         if (player.x < 0) { player.x = 0; player.vx = 0; }
         if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.vx = 0; }
 
-        // --- All vertical logic is now gated by state.gameStarted ---
-        // FIX: Floor only moves after player has climbed 30 points
         if (state.gameStarted && state.score > 30) {
             // 7. Update Score
             let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
             if (heightScore > state.score) {
                 state.score = heightScore;
+                
+                // NEW: Check for safe zone
+                if (state.score >= state.nextSafeZone) {
+                    state.spawnSafeZone = true;
+                    state.nextSafeZone += 500;
+                }
             }
             ui.score.innerText = state.score;
 
             // 8. Move Glitch Floor
-            state.floorY -= (CFG.baseFloorSpeed + (state.score / 500)); // Gets faster with score
+            state.floorY -= (CFG.baseFloorSpeed + (state.score / 500)); 
             
             // 9. Update Camera
-            let targetCamY = player.y - canvas.height * 0.6; // Follow player
-            let floorCamY = state.floorY - canvas.height; // Be pushed by floor
+            let targetCamY = player.y - canvas.height * 0.6; 
+            let floorCamY = state.floorY - canvas.height; 
             
-            let desiredCamY = Math.min(targetCamY, floorCamY + 50); // +50px buffer from floor
+            let desiredCamY = Math.min(targetCamY, floorCamY + 50); 
             state.cameraY += (desiredCamY - state.cameraY) * CFG.cameraLerp;
         } else if (state.gameStarted) {
-            // Player has jumped, but not high enough for floor to move
-            // We still need to update score and camera
             let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
             if (heightScore > state.score) {
                 state.score = heightScore;
             }
             ui.score.innerText = state.score;
-            // Camera follows player, but floor doesn't push
+
             let targetCamY = player.y - canvas.height * 0.6;
-            if (targetCamY < state.cameraY) { // Only move up
+            if (targetCamY < state.cameraY) { 
                  state.cameraY += (targetCamY - state.cameraY) * CFG.cameraLerp;
             }
-
-            // Generate platforms
-            let topOfScreen = state.cameraY;
-            // FIX: Generate platforms more aggressively
-            // Check if top of screen is within one screen height of the last platform
-            if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + canvas.height) {
-                // Generate two screens worth of platforms to prevent running out
-                generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height * 2);
-            }
         }
-        // --- End of gameStarted block ---
         
-        // 12. Check Game Over (This check is always on)
-        // If player falls below the rising floor OR off the bottom of the screen
+        // 10. Generate platforms (This check is now independent of score)
+        let topOfScreen = state.cameraY;
+        if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + CFG.platformGapY) {
+            // FIX: Generate two screens worth to prevent running out
+            generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height * 2);
+        }
+
+        // 11. Cleanup old platforms
+        if (platforms.length > 0 && platforms[0].y > state.cameraY + canvas.height + 100) {
+            platforms.shift();
+        }
+        
+        // 12. Check Game Over
         let deathLine = state.gameStarted ? state.floorY : canvas.height + 50;
         if (player.y > deathLine) {
             gameOver();
-            return; // <-- THIS IS THE LEGAL RETURN STATEMENT
+            return;
         }
 
         // 13. Update Animations
-        // Lerp back to normal size
         player.anim.scaleX += (1 - player.anim.scaleX) * 0.2;
         player.anim.scaleY += (1 - player.anim.scaleY) * 0.2;
-        // Blinking
         player.anim.eyeBlinkTimer--;
         if(player.anim.eyeBlinkTimer <= 0) {
             player.anim.eyeSize = (player.anim.eyeSize === 4) ? 1 : 4;
@@ -612,34 +610,40 @@ function handleMotion(e) {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
-        ctx.translate(0, -state.cameraY); // Apply camera
+        ctx.translate(0, -state.cameraY); 
 
         // Draw Glitch Floor
         let grad = ctx.createLinearGradient(0, state.floorY, 0, state.floorY + 200);
         grad.addColorStop(0, 'rgba(255, 0, 85, 0.8)');
         grad.addColorStop(1, 'rgba(255, 0, 85, 0)');
         ctx.fillStyle = grad;
-        ctx.fillRect(0, state.floorY, canvas.width, canvas.height * 2); // Fill rest of screen
+        ctx.fillRect(0, state.floorY, canvas.width, canvas.height * 2); 
         
-        // Glitch line
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, state.floorY);
-        // FIX: Replaced '0.s5' with '0.5'
         for(let i=0; i<canvas.width; i+=10) ctx.lineTo(i + (Math.random()-0.5)*10, state.floorY + (Math.random()-0.5)*4);
         ctx.stroke();
 
         // Draw Platforms
         platforms.forEach(p => {
-            // Cull platforms
-            if (p.y > state.cameraY + canvas.height || p.y + p.height < state.cameraY - 50) { // -50 buffer
+            if (p.y > state.cameraY + canvas.height || p.y + p.height < state.cameraY - 50) {
                 return;
             }
-            ctx.fillStyle = '#222';
-            ctx.fillRect(p.x, p.y, p.width, p.height);
-            ctx.fillStyle = COLORS.secondary; // Use JS color constant
-            ctx.fillRect(p.x, p.y, p.width, 3); // Top highlight
+            
+            // NEW: Style for Safe Zone
+            if (p.isSafeZone) {
+                ctx.fillStyle = COLORS.accent;
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.x, p.y, p.width, 3);
+            } else {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.fillStyle = COLORS.secondary; 
+                ctx.fillRect(p.x, p.y, p.width, 3); 
+            }
         });
 
         // Draw Player (Cube)
@@ -651,14 +655,12 @@ function handleMotion(e) {
         
         ctx.translate(pCenterX, pCenterY);
         
-        // Body
-        ctx.fillStyle = COLORS.accent; // Use JS color constant
-        ctx.shadowColor = COLORS.accent; // Use JS color constant
+        ctx.fillStyle = COLORS.accent; 
+        ctx.shadowColor = COLORS.accent; 
         ctx.shadowBlur = 15;
         ctx.fillRect(-pDrawWidth / 2, -pDrawHeight / 2, pDrawWidth, pDrawHeight);
         ctx.shadowBlur = 0;
         
-        // Eyes
         ctx.fillStyle = '#000';
         let eyeOffX = 5;
         if(player.vx > 1) eyeOffX = 7;
@@ -667,7 +669,7 @@ function handleMotion(e) {
         ctx.fillRect(-eyeOffX - 2, -3, 4, player.anim.eyeSize); // Left
         ctx.fillRect(eyeOffX - 2, -3, 4, player.anim.eyeSize); // Right
         
-        ctx.restore(); // Restore from player transform
+        ctx.restore(); 
 
         // Draw Particles
         particles.forEach(p => {
@@ -677,17 +679,17 @@ function handleMotion(e) {
             ctx.globalAlpha = 1;
         });
 
-        ctx.restore(); // Restore from camera
+        ctx.restore(); 
     }
 
     // --- GAME LOOP ---
     function loop() {
         if (!state.running) {
-            return; // LEGAL return
+            return; 
         }
         if (state.paused) {
-            draw(); // Keep drawing when paused, but don't update
-            return; // LEGAL return
+            draw(); 
+            return; 
         }
 
         update();

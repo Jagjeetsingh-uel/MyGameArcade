@@ -1,18 +1,17 @@
 // Service Worker for NEON ARCADE PWA
 const CACHE_NAME = 'neon-arcade-v1';
 const urlsToCache = [
-  '/MyGameArcade/',
-  '/MyGameArcade/index.html',
-  '/MyGameArcade/games/hyper_jump.html',
-  '/MyGameArcade/games/cube_surfer.html',
-  '/MyGameArcade/games/cyber_swing.html',
-  '/MyGameArcade/games/neon_stack.html',
-  '/MyGameArcade/games/prompt_drop.html',
-  '/MyGameArcade/games/neon_orbit.html',
-  '/MyGameArcade/games/void_strike.html',
-  '/MyGameArcade/games/chroma_shift.html',
-  '/MyGameArcade/games/void_weaver.html',
-  '/MyGameArcade/analytics.js'
+  'index.html',
+  'games/hyper_jump.html',
+  'games/cube_surfer.html',
+  'games/cyber_swing.html',
+  'games/neon_stack.html',
+  'games/prompt_drop.html',
+  'games/neon_orbit.html',
+  'games/void_strike.html',
+  'games/chroma_shift.html',
+  'games/void_weaver.html',
+  'analytics.js'
 ];
 
 // Install event - cache files

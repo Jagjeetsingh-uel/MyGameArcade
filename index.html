@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
         <!-- Analytics -->
-        <script defer src="/MyGameArcade/analytics.js"></script>
+        <script defer src="analytics.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NEON ARCADE</title>
@@ -516,7 +516,7 @@
     // --- REGISTER SERVICE WORKER ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/MyGameArcade/sw.js')
+            navigator.serviceWorker.register('sw.js')
                 .then((registration) => {
                     console.log('Service Worker registered:', registration);
                 })
@@ -525,6 +525,37 @@
                 });
         });
     }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Only register service worker in a secure context (https) or localhost
+                const isSecure = (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+                if (!isSecure) {
+                    console.log('Service Worker not registered: insecure context (protocol:', location.protocol + ')');
+                    return;
+                }
+
+                // Try several possible paths so local testing and GitHub Pages both work.
+                const swCandidates = ['/MyGameArcade/sw.js', '/sw.js', './sw.js', 'sw.js'];
+
+                function tryRegister(index) {
+                    if (index >= swCandidates.length) {
+                        console.log('Service Worker registration failed: no valid path found');
+                        return;
+                    }
+                    const path = swCandidates[index];
+                    navigator.serviceWorker.register(path)
+                        .then((registration) => {
+                            console.log('Service Worker registered at', path, registration);
+                        })
+                        .catch((err) => {
+                            console.log('Service Worker registration failed at', path, err);
+                            tryRegister(index + 1);
+                        });
+                }
+
+                tryRegister(0);
+            });
+        }
 </script>
 </body>
 </html>

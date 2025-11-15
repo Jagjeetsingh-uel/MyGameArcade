@@ -383,6 +383,7 @@
         generatePlatforms(canvas.height, 0);
 
         ui.score.innerText = "0";
+        ui.highScore.innerText = `HI: ${state.highScore}`; // Update high score display
         ui.startMenu.classList.remove('active');
         ui.gameOverMenu.classList.remove('active'); // <-- FIX: Hide game over menu
         ui.pauseBtn.classList.remove('hidden');
@@ -565,9 +566,9 @@
             ui.score.innerText = state.score;
 
             // 8. Move Glitch Floor
-            // Floor speed increases by 0.1 every 1000 score units, clamped to max 1.0
-            const floorIncrements = Math.floor(state.score / 1000) * 0.1;
-            const floorSpeed = Math.min(1, CFG.baseFloorSpeed + floorIncrements);
+            // Floor speed increases by 0.1 every 1000 score units, clamped to max 2.0
+            const floorIncrements = Math.floor(state.score / 800) * 0.1;
+            const floorSpeed = Math.min(2, CFG.baseFloorSpeed + floorIncrements);
             state.floorY -= floorSpeed; 
             
             // 9. Update Camera

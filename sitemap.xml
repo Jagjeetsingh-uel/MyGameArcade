@@ -61,4 +61,18 @@
     <priority>0.8</priority>
   </url>
 
+  <url>
+    <loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/void_strike.html</loc>
+    <lastmod>2025-11-15T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://jagjeetsingh-uel.github.io/MyGameArcade/games/hyper_jump.html</loc>
+    <lastmod>2025-11-15T00:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
 </urlset>

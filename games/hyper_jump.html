@@ -269,7 +269,9 @@
         floorY: 0, 
         isMobile: false,
         nextSafeZone: 500,
-        spawnSafeZone: false 
+        spawnSafeZone: false,
+        lastMilestone: 0,
+        celebrationTimer: 0
     };
 
     // ENTITIES
@@ -359,7 +361,9 @@
         state.cameraY = 0;
         state.floorY = canvas.height + 100;
         state.nextSafeZone = 500; 
-        state.spawnSafeZone = false; 
+        state.spawnSafeZone = false;
+        state.lastMilestone = 0;
+        state.celebrationTimer = 0; 
         
         player.x = canvas.width / 2 - CFG.playerSize / 2;
         player.y = canvas.height - 100;
@@ -477,6 +481,27 @@
             });
         }
     }
+
+    function triggerMilestoneCelebration(score) {
+        state.celebrationTimer = 60; // 1 second at 60fps
+        // Burst of colorful particles around player
+        const colors = [COLORS.accent, COLORS.secondary, COLORS.safeZone, '#ff00ff', '#00ffff'];
+        for(let i=0; i<30; i++) {
+            const angle = (i / 30) * Math.PI * 2;
+            const speed = 3 + Math.random() * 4;
+            particles.push({
+                x: player.x + player.width/2,
+                y: player.y + player.height/2,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 60,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+        }
+        // Player celebration squash
+        player.anim.scaleX = 1.5;
+        player.anim.scaleY = 1.5;
+    }
     
     // --- UPDATE ---
     function update() {
@@ -557,6 +582,13 @@
             if (heightScore > state.score) {
                 state.score = heightScore;
                 
+                // Check for milestone celebrations (every 500 points)
+                const currentMilestone = Math.floor(state.score / 500);
+                if (currentMilestone > state.lastMilestone) {
+                    state.lastMilestone = currentMilestone;
+                    triggerMilestoneCelebration(state.score);
+                }
+                
                 // NEW: Check for safe zone
                 if (state.score >= state.nextSafeZone) {
                     state.spawnSafeZone = true;
@@ -624,9 +656,13 @@
             let p = particles[i];
             p.x += p.vx;
             p.y += p.vy;
+            p.vy += 0.15; // slight gravity on particles
             p.life--;
             if (p.life <= 0) particles.splice(i, 1);
         }
+        
+        // 15. Update celebration timer
+        if (state.celebrationTimer > 0) state.celebrationTimer--;
     }
 
     // --- DRAW ---
@@ -680,9 +716,17 @@
         
         ctx.translate(pCenterX, pCenterY);
         
-        ctx.fillStyle = COLORS.accent; 
-        ctx.shadowColor = COLORS.accent; 
-        ctx.shadowBlur = 15;
+        // Celebration glow effect
+        if (state.celebrationTimer > 0) {
+            const glowIntensity = (state.celebrationTimer / 60) * 30;
+            ctx.shadowBlur = 15 + glowIntensity;
+            ctx.shadowColor = COLORS.secondary;
+        } else {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = COLORS.accent;
+        }
+        
+        ctx.fillStyle = COLORS.accent;
         ctx.fillRect(-pDrawWidth / 2, -pDrawHeight / 2, pDrawWidth, pDrawHeight);
         ctx.shadowBlur = 0;
         

@@ -271,7 +271,10 @@
         nextSafeZone: 500,
         spawnSafeZone: false,
         lastMilestone: 0,
-        celebrationTimer: 0
+        celebrationTimer: 0,
+        celebrationText: '',
+        celebrationScale: 0,
+        screenFlash: 0
     };
 
     // ENTITIES
@@ -363,7 +366,10 @@
         state.nextSafeZone = 500; 
         state.spawnSafeZone = false;
         state.lastMilestone = 0;
-        state.celebrationTimer = 0; 
+        state.celebrationTimer = 0;
+        state.celebrationText = '';
+        state.celebrationScale = 0;
+        state.screenFlash = 0; 
         
         player.x = canvas.width / 2 - CFG.playerSize / 2;
         player.y = canvas.height - 100;
@@ -483,24 +489,28 @@
     }
 
     function triggerMilestoneCelebration(score) {
-        state.celebrationTimer = 60; // 1 second at 60fps
-        // Burst of colorful particles around player
-        const colors = [COLORS.accent, COLORS.secondary, COLORS.safeZone, '#ff00ff', '#00ffff'];
-        for(let i=0; i<30; i++) {
-            const angle = (i / 30) * Math.PI * 2;
-            const speed = 3 + Math.random() * 4;
+        state.celebrationTimer = 90; // 1.5 seconds at 60fps
+        state.celebrationText = score + 'm!';
+        state.celebrationScale = 0;
+        state.screenFlash = 1.0; // Full brightness flash
+        
+        // MASSIVE burst of colorful particles around player
+        const colors = [COLORS.accent, COLORS.secondary, COLORS.safeZone, '#ff00ff', '#00ffff', '#ff0055'];
+        for(let i=0; i<60; i++) {
+            const angle = (i / 60) * Math.PI * 2;
+            const speed = 4 + Math.random() * 8;
             particles.push({
                 x: player.x + player.width/2,
                 y: player.y + player.height/2,
                 vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                life: 60,
+                vy: Math.sin(angle) * speed - 2,
+                life: 90,
                 color: colors[Math.floor(Math.random() * colors.length)]
             });
         }
         // Player celebration squash
-        player.anim.scaleX = 1.5;
-        player.anim.scaleY = 1.5;
+        player.anim.scaleX = 2.0;
+        player.anim.scaleY = 2.0;
     }
     
     // --- UPDATE ---
@@ -661,14 +671,31 @@
             if (p.life <= 0) particles.splice(i, 1);
         }
         
-        // 15. Update celebration timer
-        if (state.celebrationTimer > 0) state.celebrationTimer--;
+        // 15. Update celebration effects
+        if (state.celebrationTimer > 0) {
+            state.celebrationTimer--;
+            // Animate celebration text scale (pop in and fade out)
+            const progress = 1 - (state.celebrationTimer / 90);
+            if (progress < 0.2) {
+                state.celebrationScale = progress / 0.2; // Scale up quickly
+            } else {
+                state.celebrationScale = 1.0 - ((progress - 0.2) / 0.8) * 0.5; // Fade slightly
+            }
+            // Fade screen flash quickly
+            state.screenFlash *= 0.85;
+        }
     }
 
     // --- DRAW ---
     function draw() {
         ctx.fillStyle = COLORS.bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Screen flash effect for celebrations
+        if (state.screenFlash > 0.01) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${state.screenFlash * 0.3})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         ctx.save();
         ctx.translate(0, -state.cameraY); 
@@ -739,6 +766,40 @@
         ctx.fillRect(eyeOffX - 2, -3, 4, player.anim.eyeSize); // Right
         
         ctx.restore(); 
+        
+        // CELEBRATION TEXT (large animated text in world space)
+        if (state.celebrationTimer > 0 && state.celebrationScale > 0) {
+            ctx.save();
+            const textY = player.y - 100;
+            const textX = player.x + player.width/2;
+            
+            ctx.translate(textX, textY);
+            ctx.scale(state.celebrationScale, state.celebrationScale);
+            
+            // Text setup
+            ctx.font = 'bold 80px Rajdhani';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Black outline
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = '#000';
+            ctx.strokeText(state.celebrationText, 0, 0);
+            
+            // Gradient fill
+            const gradient = ctx.createLinearGradient(0, -40, 0, 40);
+            gradient.addColorStop(0, COLORS.accent);
+            gradient.addColorStop(0.5, '#ffffff');
+            gradient.addColorStop(1, COLORS.secondary);
+            ctx.fillStyle = gradient;
+            
+            // Bright glow
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = COLORS.accent;
+            ctx.fillText(state.celebrationText, 0, 0);
+            
+            ctx.restore();
+        }
 
         // Draw Particles
         particles.forEach(p => {

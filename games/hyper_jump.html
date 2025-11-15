@@ -24,9 +24,10 @@
     
     <style>
         :root {
-            --bg-color: #050510;
-            --accent: #00ff9d; /* Cyber Green */
-            --secondary: #00d2ff; /* Cyber Blue */
+            --bg-color: #0c0a18; /* Deep Space Blue */
+            --accent: #FFD700; /* Gold (Player) */
+            --secondary: #4ecdc4; /* Teal (Platforms) */
+            --safe-zone: #ff8c00; /* Orange (Safe Platforms) */
             --danger: #ff0055; /* Cyber Red */
             --ui-bg: rgba(255, 255, 255, 0.05);
             --font-main: 'Rajdhani', sans-serif;
@@ -140,10 +141,10 @@
             font-family: var(--font-main); font-weight: 900; font-size: 1.4rem;
             text-transform: uppercase; letter-spacing: 1px;
             border-radius: 8px; cursor: pointer;
-            box-shadow: 0 0 25px rgba(0, 255, 157, 0.4);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); /* Gold shadow */
             transition: transform 0.1s, box-shadow 0.2s;
         }
-        .btn-primary:active { transform: scale(0.96); box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
+        .btn-primary:active { transform: scale(0.96); box-shadow: 0 0 10px rgba(255, 215, 0, 0.2); }
         
         #pause-text {
             position: absolute; top: 50%; left: 50%;
@@ -206,9 +207,14 @@
 <script>
     /**
      * HYPER JUMP v2
+     * - New Colors (Gold/Teal)
+     * - More Platforms (Closer Gap)
      * - Fixed Tilt Controls
      * - Fixed Platform Generation Bug
      * - Added 500m Safe Zones
+     * - Fixed Physics/Sliding Bug
+     * - Fixed Retry Menu Bug
+     * - Fixed Jump Spam Bug
      */
 
     const canvas = document.getElementById('gameCanvas');
@@ -230,10 +236,11 @@
 
     // CONFIG
     const COLORS = {
-        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00ff9d',
-        secondary: getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#00d2ff',
+        accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFD700',
+        secondary: getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#4ecdc4',
+        safeZone: getComputedStyle(document.documentElement).getPropertyValue('--safe-zone').trim() || '#ff8c00',
         danger: getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ff0055',
-        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#050510'
+        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim() || '#0c0a18'
     };
     
     const CFG = {
@@ -244,7 +251,7 @@
         platformHeight: 15,
         minPlatformWidth: 80,
         maxPlatformWidth: 150,
-        platformGapY: 100,
+        platformGapY: 80, // <-- More platforms
         baseFloorSpeed: 0.2, 
         cameraLerp: 0.08,
         playerSize: 25
@@ -260,8 +267,8 @@
         cameraY: 0,
         floorY: 0, 
         isMobile: false,
-        nextSafeZone: 500, // <-- NEW: For 500m checkpoint
-        spawnSafeZone: false // <-- NEW: Flag to spawn checkpoint
+        nextSafeZone: 500,
+        spawnSafeZone: false 
     };
 
     // ENTITIES
@@ -350,8 +357,8 @@
         state.score = 0;
         state.cameraY = 0;
         state.floorY = canvas.height + 100;
-        state.nextSafeZone = 500; // <-- NEW
-        state.spawnSafeZone = false; // <-- NEW
+        state.nextSafeZone = 500; 
+        state.spawnSafeZone = false; 
         
         player.x = canvas.width / 2 - CFG.playerSize / 2;
         player.y = canvas.height - 100;
@@ -367,7 +374,8 @@
             x: 0, 
             y: canvas.height - 50,
             width: canvas.width, 
-            height: CFG.platformHeight
+            height: CFG.platformHeight,
+            isSafeZone: true // Treat start as safe zone
         });
         
         // Create initial screen of platforms
@@ -375,7 +383,7 @@
 
         ui.score.innerText = "0";
         ui.startMenu.classList.remove('active');
-        ui.gameOverMenu.classList.remove('active'); 
+        ui.gameOverMenu.classList.remove('active'); // <-- FIX: Hide game over menu
         ui.pauseBtn.classList.remove('hidden');
         ui.pauseText.classList.remove('active');
 
@@ -430,16 +438,15 @@
     function generatePlatforms(fromY, toY) {
         let y = fromY - CFG.platformGapY;
 
-        // Check if we need to spawn a safe zone
         if (state.spawnSafeZone) {
             platforms.push({
                 x: 0, y: y,
                 width: canvas.width,
                 height: CFG.platformHeight,
-                isSafeZone: true // For styling
+                isSafeZone: true 
             });
-            y -= CFG.platformGapY; // Add extra gap
-            state.spawnSafeZone = false; // Reset flag
+            y -= CFG.platformGapY; 
+            state.spawnSafeZone = false; 
         }
 
         while (y > toY) {
@@ -472,7 +479,7 @@
             }
             player.vy = -CFG.jumpForce;
             player.onGround = false;
-            keys.jump = false; 
+            keys.jump = false; // <-- FIX: Consume the jump input immediately
             
             player.anim.scaleX = 1.3;
             player.anim.scaleY = 0.7;
@@ -500,27 +507,30 @@
                 player.vy = 0;
                 player.onGround = true; 
                 
+                // *** PHYSICS FIX ***
+                // Apply friction *only* if not actively moving
+                if (!keys.left && !keys.right && !state.isMobile) {
+                     player.vx *= CFG.friction;
+                }
+                
                 player.anim.scaleX = 1.2;
                 player.anim.scaleY = 0.8;
                 break; 
             }
         }
 
-        // 4. Handle Horizontal Input & Friction
-        if (player.onGround) {
-            player.vx *= CFG.friction;
-        }
-
+        // 4. Handle Horizontal Input
         if (!state.isMobile) {
             if (keys.left) {
                 player.vx = -CFG.moveSpeed;
             } else if (keys.right) {
                 player.vx = CFG.moveSpeed;
+            } else if (player.onGround) { // Only apply ground friction if no keys pressed
+                player.vx *= CFG.friction;
             }
         } else {
-             if (player.onGround) {
-                player.vx *= (CFG.friction * 0.9);
-            }
+             // Mobile friction (applied constantly, tilt overcomes it)
+             player.vx *= (CFG.friction * 0.98); // Slightly less friction for tilt
         }
         
         // 5. Apply Horizontal Physics
@@ -530,6 +540,8 @@
         if (player.x < 0) { player.x = 0; player.vx = 0; }
         if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.vx = 0; }
 
+        // --- All vertical logic is now gated by state.gameStarted ---
+        // FIX: Floor only moves after player has climbed 30 points
         if (state.gameStarted && state.score > 30) {
             // 7. Update Score
             let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
@@ -554,6 +566,7 @@
             let desiredCamY = Math.min(targetCamY, floorCamY + 50); 
             state.cameraY += (desiredCamY - state.cameraY) * CFG.cameraLerp;
         } else if (state.gameStarted) {
+            // Player has jumped, but not high enough for floor to move
             let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
             if (heightScore > state.score) {
                 state.score = heightScore;
@@ -568,8 +581,8 @@
         
         // 10. Generate platforms (This check is now independent of score)
         let topOfScreen = state.cameraY;
-        if (platforms.length > 0 && topOfScreen < platforms[platforms.length - 1].y + CFG.platformGapY) {
-            // FIX: Generate two screens worth to prevent running out
+        // FIX: Generate two screens worth to prevent running out
+        if (platforms.length > 0 && topOfScreen < (platforms[platforms.length - 1].y + CFG.platformGapY)) {
             generatePlatforms(platforms[platforms.length - 1].y, topOfScreen - canvas.height * 2);
         }
 
@@ -634,7 +647,7 @@
             
             // NEW: Style for Safe Zone
             if (p.isSafeZone) {
-                ctx.fillStyle = COLORS.accent;
+                ctx.fillStyle = COLORS.safeZone;
                 ctx.fillRect(p.x, p.y, p.width, p.height);
                 ctx.fillStyle = '#fff';
                 ctx.fillRect(p.x, p.y, p.width, 3);

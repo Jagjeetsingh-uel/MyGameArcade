@@ -548,8 +548,8 @@
         if (player.x + player.width > canvas.width) { player.x = canvas.width - player.width; player.vx = 0; }
 
         // --- All vertical logic is now gated by state.gameStarted ---
-        // FIX: Floor only moves after player has climbed 30 points
-        if (state.gameStarted && state.score > 30) {
+        // FIX: Floor only moves after player has climbed 70 points
+        if (state.gameStarted && state.score > 70) {
             // 7. Update Score
             let heightScore = Math.floor(Math.max(0, -player.y + canvas.height - 100));
             if (heightScore > state.score) {
@@ -564,7 +564,10 @@
             ui.score.innerText = state.score;
 
             // 8. Move Glitch Floor
-            state.floorY -= (CFG.baseFloorSpeed + (state.score / 500)); 
+            // Floor speed increases by 0.1 every 1000 score units, clamped to max 1.0
+            const floorIncrements = Math.floor(state.score / 1000) * 0.1;
+            const floorSpeed = Math.min(1, CFG.baseFloorSpeed + floorIncrements);
+            state.floorY -= floorSpeed; 
             
             // 9. Update Camera
             let targetCamY = player.y - canvas.height * 0.6; 

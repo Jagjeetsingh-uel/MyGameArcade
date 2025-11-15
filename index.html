@@ -170,23 +170,7 @@
         .c-strike { background: linear-gradient(45deg, #0f2027, #203a43, #2c5364); }
         .c-jump { background: linear-gradient(45deg, #ff6b6b, #feca57); }
 
-        /* --- INSTALL BUTTON (LEFT) --- */
-        .install-btn {
-            position: fixed; top: 20px; left: 20px; z-index: 100;
-            background: linear-gradient(45deg, var(--neon-pink), var(--neon-blue));
-            border: 2px solid white; backdrop-filter: blur(10px);
-            border-radius: 12px; padding: 12px 20px; color: white;
-            cursor: pointer; font-family: 'Orbitron', sans-serif;
-            font-size: 1rem; font-weight: 700; transition: all 0.3s;
-            display: none; /* Hidden by default, shown via JS */
-        }
-        .install-btn.show {
-            display: block;
-        }
-        .install-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px var(--neon-pink);
-        }
+        /* Install button removed - PWA install handled by browser UI */
 
         /* --- SHARE BUTTON (RIGHT) --- */
         .share-btn {
@@ -261,9 +245,6 @@
 
     <!-- 3D BACKGROUND -->
     <canvas id="bg-canvas"></canvas>
-
-    <!-- INSTALL APP BUTTON (LEFT) -->
-    <button class="install-btn" id="installBtn" onclick="installApp()">📥 INSTALL APP</button>
 
     <!-- SHARE BUTTON (RIGHT) -->
     <button class="share-btn" onclick="shareArcade()">📤 SHARE</button>
@@ -471,69 +452,32 @@
     // --- PWA INSTALL ---
     let deferredPrompt;
     const pwaModal = document.getElementById('pwaModal');
-    const installBtn = document.getElementById('installBtn');
 
     window.addEventListener('beforeinstallprompt', (e) => {
+        // Store the event for later use but do not surface a custom install button.
+        // Let the browser show its native install UI (address bar/menu) when appropriate.
         e.preventDefault();
         deferredPrompt = e;
-        
-        // Show install button
-        installBtn.classList.add('show');
-        
-        // Check if user already dismissed or installed (for modal popup)
+
+        // On mobile, still show the install modal (instructions) if user hasn't dismissed it
         if (!localStorage.getItem('pwaPromptDismissed') && /Mobi|Android/i.test(navigator.userAgent)) {
             setTimeout(() => {
                 pwaModal.classList.add('active');
-            }, 2000); // Show after 2 seconds
+            }, 2000);
         }
     });
 
-    // Check if already installed or iOS
+    // Check if already installed or iOS - nothing to show, browser handles install UI
     window.addEventListener('load', () => {
-        // For iOS or when beforeinstallprompt doesn't fire
-        if (!deferredPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
-            // Show install button for manual instructions
-            setTimeout(() => {
-                installBtn.classList.add('show');
-            }, 1000);
-        }
-        
-        // Hide button if already installed
+        // If already running as standalone, hide the install modal
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            installBtn.style.display = 'none';
+            pwaModal.classList.remove('active');
+            localStorage.setItem('pwaPromptDismissed', 'true');
         }
     });
 
-    // Install App function for button
-    function installApp() {
-        if (deferredPrompt) {
-            // For Chrome, Edge, etc.
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted PWA install');
-                    installBtn.style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
-        } else {
-            // Manual instructions for iOS, Firefox, and other browsers
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isAndroid = /Android/.test(navigator.userAgent);
-            
-            let message = 'To install NEON ARCADE:\n\n';
-            
-            if (isIOS) {
-                message += '📱 iOS/Safari:\n1. Tap the Share button (square with arrow)\n2. Scroll and tap "Add to Home Screen"\n3. Tap "Add"';
-            } else if (isAndroid) {
-                message += '📱 Android:\n1. Tap menu (⋮) in browser\n2. Tap "Install app" or "Add to Home screen"\n3. Tap "Install"';
-            } else {
-                message += '💻 Desktop:\n1. Look for install icon in address bar\n2. Or open browser menu\n3. Select "Install Neon Arcade..."\n\nSupported: Chrome, Edge, Opera';
-            }
-            
-            alert(message);
-        }
-    }
+    // installApp removed; the browser's native install UI will be used. For unsupported
+    // cases we still surface manual instructions from within installPWA().
 
     function installPWA() {
         if (deferredPrompt) {
@@ -541,7 +485,6 @@
             deferredPrompt.userChoice.then((choiceResult) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('User accepted PWA install');
-                    installBtn.style.display = 'none';
                 }
                 deferredPrompt = null;
                 pwaModal.classList.remove('active');
@@ -549,7 +492,17 @@
             });
         } else {
             // Manual instructions for iOS and other browsers
-            installApp(); // Reuse the same function
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            let message = 'To install NEON ARCADE:\n\n';
+            if (isIOS) {
+                message += '📱 iOS/Safari:\n1. Tap the Share button (square with arrow)\n2. Scroll and tap "Add to Home Screen"\n3. Tap "Add"';
+            } else if (isAndroid) {
+                message += '📱 Android:\n1. Tap menu (⋮) in browser\n2. Tap "Install app" or "Add to Home screen"\n3. Tap "Install"';
+            } else {
+                message += '💻 Desktop:\n1. Look for install icon in address bar\n2. Or open browser menu\n3. Select "Install Neon Arcade..."\n\nSupported: Chrome, Edge, Opera';
+            }
+            alert(message);
             pwaModal.classList.remove('active');
             localStorage.setItem('pwaPromptDismissed', 'true');
         }

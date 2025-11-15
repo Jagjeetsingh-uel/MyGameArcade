@@ -1,0 +1,41 @@
+{
+  "name": "NEON ARCADE",
+  "short_name": "NeonArcade",
+  "description": "Collection of free HTML5 mini games - instant play in your browser",
+  "start_url": "/MyGameArcade/index.html",
+  "display": "standalone",
+  "background_color": "#050510",
+  "theme_color": "#00f3ff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/MyGameArcade/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/MyGameArcade/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Hyper Jump",
+      "short_name": "Jump",
+      "description": "Tower climbing game",
+      "url": "/MyGameArcade/games/hyper_jump.html",
+      "icons": [{ "src": "/MyGameArcade/assets/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Cube Surfer",
+      "short_name": "Surfer",
+      "description": "3D endless runner",
+      "url": "/MyGameArcade/games/cube_surfer.html",
+      "icons": [{ "src": "/MyGameArcade/assets/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

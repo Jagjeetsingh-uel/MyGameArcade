@@ -427,10 +427,17 @@
         keys.jump = true; 
     }
     function handleMotion(e) {
-        if (e.rotationRate && e.rotationRate.gamma) {
-            let tilt = e.rotationRate.gamma;
-            // FIX: Inverted tilt. Tilting right (positive gamma) now moves right.
-            player.vx = tilt * 0.4;
+        // --- MOBILE TILT SENSOR CONTROLS ----------------------------------
+        // This handler is attached when motion permission is granted on mobile.
+        // We read rotationRate.gamma (device tilt around Y axis). Typical values:
+        //   gamma > 0  : device top tilts RIGHT
+        //   gamma < 0  : device top tilts LEFT
+        // The user requested INVERSION of previous behavior. Previously: vx = tilt * 0.4
+        // Now we invert so tilting RIGHT (positive gamma) moves character LEFT and vice‑versa.
+        // Adjust the multiplier (0.4) to tune horizontal sensitivity.
+        if (e.rotationRate && typeof e.rotationRate.gamma === 'number') {
+            const tilt = e.rotationRate.gamma;
+            player.vx = -tilt * 0.4; // INVERTED MAPPING
         }
     }
 
